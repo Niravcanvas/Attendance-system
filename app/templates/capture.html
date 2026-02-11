@@ -1,0 +1,1255 @@
+<!-- capture.html - FIXED VERSION -->
+{% extends "base.html" %}
+{% set active_page = 'capture' %}
+{% block title %}Capture Faces • AI Attendance{% endblock %}
+
+{% block head %}
+<style>
+    .capture-container {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+    
+    .camera-frame {
+        position: relative;
+        border: 3px solid;
+        border-image: linear-gradient(45deg, #3b82f6, #8b5cf6) 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    
+    .face-guide {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 280px;
+        border: 2px dashed rgba(59, 130, 246, 0.5);
+        border-radius: 10px;
+        pointer-events: none;
+    }
+    
+    .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 8px;
+    }
+    
+    .preview-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #1e293b;
+    }
+    
+    .preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+    
+    .preview-item:hover img {
+        transform: scale(1.05);
+    }
+    
+    .preview-item .delete-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        width: 20px;
+        height: 20px;
+        background: rgba(239, 68, 68, 0.9);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .preview-item:hover .delete-btn {
+        opacity: 1;
+    }
+    
+    .upload-dropzone {
+        border: 3px dashed #475569;
+        background: rgba(30, 41, 59, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .upload-dropzone.dragover {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #334155;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .status-indicator.inactive {
+        background-color: #ef4444;
+    }
+    
+    .status-indicator.active {
+        background-color: #10b981;
+    }
+    
+    .no-captures {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .capture-info {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(transparent, rgba(0,0,0,0.8));
+        padding: 8px;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .preview-item:hover .capture-info {
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="capture-container border border-gray-700 rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
+                    <i class="fas fa-camera mr-3"></i>Face Capture
+                </h1>
+                <p class="text-gray-400">Capture student faces and mark class attendance</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="cameraStatus" class="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg">
+                    <span class="status-indicator inactive"></span>
+                    <span class="text-sm font-medium text-gray-300">Camera Offline</span>
+                </div>
+                <button onclick="window.location.href='{{ url_for('index') }}'"
+                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Main Camera Section -->
+        <div class="lg:col-span-2">
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6">
+                <!-- Camera Preview -->
+                <div class="mb-6">
+                    <div class="camera-frame rounded-xl overflow-hidden aspect-video relative">
+                        <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
+                        <div class="face-guide"></div>
+                        <div class="absolute top-3 left-3">
+                            <div class="px-3 py-1.5 bg-black/70 backdrop-blur-sm rounded-lg">
+                                <span class="text-xs font-medium text-gray-300">Captures: </span>
+                                <span id="captureCount" class="text-xs font-bold text-white">0</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-3 right-3 flex gap-2">
+                            <button id="flipCamera" 
+                                    class="p-2 bg-black/60 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-colors">
+                                <i class="fas fa-sync-alt text-gray-300"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-center mt-4 gap-3">
+                        <button id="startCameraBtn"
+                                class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-video mr-2"></i>Start Camera
+                        </button>
+                        <button id="stopCameraBtn" 
+                                class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors flex items-center hidden">
+                            <i class="fas fa-stop mr-2"></i>Stop Camera
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Capture Controls -->
+                <div class="space-y-6">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Capture Mode</label>
+                            <div class="flex gap-2">
+                                <button id="singleCaptureBtn"
+                                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                                    <i class="fas fa-user mr-2"></i>Single Student
+                                </button>
+                                <button id="classCaptureBtn"
+                                        class="flex-1 px-4 py-3 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-colors">
+                                    <i class="fas fa-users mr-2"></i>Entire Class
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Recognition Threshold</label>
+                            <div class="flex items-center gap-3">
+                                <input type="range" id="thresholdSlider" min="0.1" max="0.9" step="0.1" value="0.5" 
+                                       class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="thresholdValue" class="text-sm font-medium text-white min-w-[40px]">0.5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Student Selection (for single capture) -->
+                    <div id="singleCaptureSection" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Select Student</label>
+                            <div class="flex gap-2">
+                                <select id="studentSelect" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white">
+                                    <option value="">-- Select Student --</option>
+                                    {% for student in students %}
+                                    <option value="{{ student.id }}">{{ student.name }} ({{ student.roll_no or 'No ID' }})</option>
+                                    {% endfor %}
+                                </select>
+                                <button id="captureStudentBtn"
+                                        class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                                    <i class="fas fa-camera mr-2"></i>Capture
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Class Capture Section -->
+                    <div id="classCaptureSection" class="space-y-4 hidden">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Subject</label>
+                                <select id="subjectSelect" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white">
+                                    <option value="">-- Select Subject --</option>
+                                    {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Teacher</label>
+                                <select id="teacherSelect" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white">
+                                    <option value="{{ session.user_id }}">{{ session.full_name }} (You)</option>
+                                    {% for teacher in teachers %}
+                                    {% if teacher.id != session.user_id %}
+                                    <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <button id="captureClassBtn"
+                                    class="flex-1 px-4 py-3 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-colors">
+                                <i class="fas fa-camera mr-2"></i>Capture Class Photo
+                            </button>
+                            <button id="recognizeBtn"
+                                    class="flex-1 px-4 py-3 bg-warning-600 hover:bg-warning-700 text-white font-medium rounded-lg transition-colors">
+                                <i class="fas fa-robot mr-2"></i>Recognize Faces
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div id="captureStatus" class="p-4 bg-gray-900/50 rounded-lg border border-gray-700 hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-medium text-white">Capture Status</h4>
+                            <button onclick="document.getElementById('captureStatus').classList.add('hidden')"
+                                    class="text-gray-400 hover:text-white">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="statusMessage" class="text-sm text-gray-300"></div>
+                        <div id="statusProgress" class="mt-2 hidden">
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="progressBar" class="h-full bg-primary-500 rounded-full transition-all duration-300"></div>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1 text-right" id="progressText">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Captures -->
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-history mr-2"></i>Recent Captures
+                    </h3>
+                    <button onclick="loadRecentCaptures()" 
+                            class="text-sm text-gray-400 hover:text-white flex items-center">
+                        <i class="fas fa-sync-alt mr-1"></i> Refresh
+                    </button>
+                </div>
+                
+                <div id="recentCaptures" class="preview-grid">
+                    <!-- Captures will be loaded dynamically -->
+                </div>
+                
+                <div id="noCapturesMessage" class="no-captures">
+                    <i class="fas fa-image text-gray-600 text-4xl mb-3"></i>
+                    <p class="text-gray-400 mb-2">No recent captures</p>
+                    <p class="text-sm text-gray-500">Start camera and capture images to see them here</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Upload Section -->
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                    <i class="fas fa-upload mr-2"></i>Upload Images
+                </h3>
+                
+                <div class="upload-dropzone rounded-xl p-6 text-center cursor-pointer"
+                     id="uploadDropzone">
+                    <i class="fas fa-cloud-upload-alt text-gray-500 text-3xl mb-3"></i>
+                    <p class="text-gray-400 mb-1">Drop images here or click to browse</p>
+                    <p class="text-xs text-gray-500">Supports JPG, PNG • Max 5MB per image</p>
+                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                </div>
+                
+                <div id="uploadPreview" class="preview-grid mt-4 hidden"></div>
+                
+                <div class="mt-4">
+                    <button id="uploadBtn" 
+                            class="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                        <i class="fas fa-upload mr-2"></i>Upload Selected Images
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                    <i class="fas fa-chart-bar mr-2"></i>Statistics
+                </h3>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-400">Total Students</span>
+                        <span class="text-lg font-bold text-white">{{ student_count }}</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-400">Face Images</span>
+                        <span id="totalFaces" class="text-lg font-bold text-white">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-400">Today's Captures</span>
+                        <span id="todayCaptures" class="text-lg font-bold text-white">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-400">Storage Used</span>
+                        <span id="storageUsed" class="text-lg font-bold text-white">0 MB</span>
+                    </div>
+                </div>
+                
+                <div class="mt-6 pt-6 border-t border-gray-700">
+                    <div class="text-xs text-gray-400 mb-2">System Status</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-300">Face Recognition</span>
+                            <span id="recognitionStatus" class="text-sm font-medium text-success">
+                                <i class="fas fa-check-circle mr-1"></i>Ready
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-300">Camera</span>
+                            <span id="cameraStatusText" class="text-sm font-medium text-danger">
+                                <i class="fas fa-times-circle mr-1"></i>Offline
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-300">Encodings</span>
+                            <span id="encodingsStatus" class="text-sm font-medium text-warning">
+                                <i class="fas fa-exclamation-circle mr-1"></i>Not Ready
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                    <i class="fas fa-bolt mr-2"></i>Quick Actions
+                </h3>
+                
+                <div class="space-y-3">
+                    <button onclick="window.location.href='{{ url_for('students') }}'"
+                            class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-lg bg-primary-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-user-plus text-primary-400"></i>
+                            </div>
+                            <span class="font-medium text-white">Register New Student</span>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-500"></i>
+                    </button>
+                    
+                    <button id="encodeBtn"
+                            class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-lg bg-warning-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-brain text-warning-400"></i>
+                            </div>
+                            <span class="font-medium text-white">Generate Encodings</span>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-500"></i>
+                    </button>
+                    
+                    <button onclick="window.location.href='{{ url_for('attendance') }}'"
+                            class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-lg bg-success-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-file-export text-success-400"></i>
+                            </div>
+                            <span class="font-medium text-white">Export Reports</span>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-500"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Canvas (hidden) -->
+<canvas id="canvas" class="hidden"></canvas>
+
+<script>
+// Global variables
+let cameraManager = null;
+let selectedImages = [];
+let recentCaptures = [];
+
+// Set loading state helper
+function setLoading(element, loading, text = null) {
+    if (loading) {
+        element.disabled = true;
+        const originalHTML = element.innerHTML;
+        element.setAttribute('data-original-html', originalHTML);
+        element.innerHTML = text ? `<i class="fas fa-spinner fa-spin mr-2"></i>${text}` : '<i class="fas fa-spinner fa-spin"></i>';
+    } else {
+        element.disabled = false;
+        const originalHTML = element.getAttribute('data-original-html');
+        if (originalHTML) {
+            element.innerHTML = originalHTML;
+        }
+    }
+}
+
+// Load recent captures from server
+async function loadRecentCaptures() {
+    try {
+        const response = await fetch('/api/recent_captures');
+        if (response.ok) {
+            const data = await response.json();
+            recentCaptures = data.captures || [];
+            displayRecentCaptures();
+        }
+    } catch (error) {
+        console.error('Error loading recent captures:', error);
+    }
+}
+
+// Display recent captures
+// Display recent captures
+function displayRecentCaptures() {
+    const container = document.getElementById('recentCaptures');
+    const noCapturesMessage = document.getElementById('noCapturesMessage');
+    
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (recentCaptures.length === 0) {
+        if (noCapturesMessage) noCapturesMessage.classList.remove('hidden');
+        return;
+    }
+    
+    if (noCapturesMessage) noCapturesMessage.classList.add('hidden');
+    
+    recentCaptures.forEach((capture, index) => {
+        // Get icon based on capture type
+        let icon = 'fa-image';
+        let badgeColor = 'bg-gray-600';
+        
+        if (capture.type === 'annotated') {
+            icon = 'fa-robot';
+            badgeColor = 'bg-primary-600';
+        } else if (capture.type === 'student') {
+            icon = 'fa-user';
+            badgeColor = 'bg-success-600';
+        } else if (capture.type === 'face') {
+            icon = 'fa-user-circle';
+            badgeColor = 'bg-warning-600';
+        } else if (capture.type === 'class') {
+            icon = 'fa-users';
+            badgeColor = 'bg-purple-600';
+        }
+        
+        const captureElement = document.createElement('div');
+        captureElement.className = 'preview-item group';
+        captureElement.innerHTML = `
+            <div class="relative w-full h-full">
+                <img src="${capture.thumbnail || capture.url || '/static/images/placeholder.jpg'}" 
+                     alt="${capture.name}"
+                     class="w-full h-full object-cover"
+                     onerror="this.src='/static/images/placeholder.jpg'">
+                
+                <!-- Type badge -->
+                <div class="absolute top-1 left-1 ${badgeColor} text-white text-xs px-1 py-0.5 rounded">
+                    <i class="fas ${icon}"></i>
+                </div>
+                
+                <!-- Hover overlay -->
+                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-2">
+                    <div class="text-xs text-white font-medium truncate">${capture.name}</div>
+                    <div class="text-xs text-gray-300 mt-1">${capture.time || ''}</div>
+                    <div class="text-xs text-gray-400 mt-1">${capture.size || ''}</div>
+                </div>
+                
+                <!-- Delete button -->
+                <button type="button" onclick="deleteCapture('${capture.id}')" 
+                        class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 bg-danger-600 hover:bg-danger-700 text-white rounded">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            </div>
+        `;
+        
+        // Add click to view
+        captureElement.addEventListener('click', function(e) {
+            if (!e.target.closest('button') && !e.target.closest('.delete-btn')) {
+                viewCapture(capture);
+            }
+        });
+        
+        container.appendChild(captureElement);
+    });
+}
+
+// View capture
+// View capture
+function viewCapture(capture) {
+    // Create modal to view capture
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div class="bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <div>
+                    <h3 class="font-semibold text-white">Capture Details</h3>
+                    <p class="text-sm text-gray-400">${capture.name}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="${capture.url}" 
+                       download="${capture.filename || 'capture.jpg'}"
+                       class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors">
+                        <i class="fas fa-download mr-1"></i> Download
+                    </a>
+                    <button onclick="this.closest('.fixed').remove(); document.body.style.overflow = 'auto';" 
+                            class="p-2 text-gray-400 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 overflow-auto">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <img src="${capture.url || '/static/images/placeholder.jpg'}" 
+                                 alt="${capture.name}"
+                                 class="w-full rounded-lg max-h-[400px] object-contain"
+                                 onerror="this.src='/static/images/placeholder.jpg'">
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="text-center p-3 bg-gray-900 rounded-lg">
+                                <div class="text-sm text-gray-400 mb-1">Type</div>
+                                <div class="text-white font-medium">
+                                    ${capture.type === 'annotated' ? 'Annotated' : 
+                                      capture.type === 'student' ? 'Student' : 
+                                      capture.type === 'face' ? 'Face' : 
+                                      capture.type === 'class' ? 'Class' : 'Image'}
+                                </div>
+                            </div>
+                            <div class="text-center p-3 bg-gray-900 rounded-lg">
+                                <div class="text-sm text-gray-400 mb-1">Size</div>
+                                <div class="text-white font-medium">${capture.size || 'Unknown'}</div>
+                            </div>
+                            <div class="text-center p-3 bg-gray-900 rounded-lg">
+                                <div class="text-sm text-gray-400 mb-1">Date</div>
+                                <div class="text-white font-medium">${capture.timestamp || 'Unknown'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <h4 class="font-medium text-white mb-3">Capture Information</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-sm text-gray-400">Filename</label>
+                                    <p class="text-white font-mono text-sm break-all">${capture.filename || capture.id || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-400">Display Name</label>
+                                    <p class="text-white">${capture.name || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-400">Time</label>
+                                    <p class="text-white">${capture.time || capture.timestamp || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm text-gray-400">File Type</label>
+                                    <p class="text-white">${capture.filename ? capture.filename.split('.').pop().toUpperCase() : 'Unknown'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <h4 class="font-medium text-white mb-3">Actions</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick="window.open('${capture.url}', '_blank')"
+                                        class="p-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fas fa-external-link-alt mr-2"></i> Open Full
+                                </button>
+                                <a href="${capture.url}" 
+                                   download="${capture.filename || 'capture.jpg'}"
+                                   class="p-3 bg-success-600 hover:bg-success-700 text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fas fa-download mr-2"></i> Download
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-900 rounded-lg p-4">
+                            <h4 class="font-medium text-white mb-3">Delete Capture</h4>
+                            <p class="text-sm text-gray-400 mb-3">This will permanently remove the capture file.</p>
+                            <button onclick="deleteAndClose('${capture.id}')"
+                                    class="w-full p-3 bg-danger-600 hover:bg-danger-700 text-white rounded-lg transition-colors flex items-center justify-center">
+                                <i class="fas fa-trash mr-2"></i> Delete Permanently
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    
+    // Close on escape
+    modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.body.style.overflow = 'auto';
+        }
+    });
+    
+    // Close on background click
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            modal.remove();
+            document.body.style.overflow = 'auto';
+        }
+    });
+}
+
+// Delete capture and close modal
+async function deleteAndClose(filename) {
+    if (!confirm('Are you sure you want to delete this capture? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            // Remove modal
+            document.querySelector('.fixed').remove();
+            document.body.style.overflow = 'auto';
+            
+            // Refresh captures
+            await loadRecentCaptures();
+            toast('Capture deleted', 'success');
+        } else {
+            toast('Failed to delete capture', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting capture:', error);
+        toast('Failed to delete capture', 'error');
+    }
+}
+
+// Delete capture
+// Delete capture
+async function deleteCapture(filename) {
+    if (!confirm('Are you sure you want to delete this capture?')) return;
+    
+    try {
+        const response = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            // Remove from local array
+            recentCaptures = recentCaptures.filter(c => c.id !== filename);
+            displayRecentCaptures();
+            toast('Capture deleted', 'success');
+        } else {
+            toast('Failed to delete capture', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting capture:', error);
+        toast('Failed to delete capture', 'error');
+    }
+}
+
+// Load statistics
+async function loadStatistics() {
+    try {
+        const response = await fetch('/api/capture_statistics');
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.total_faces !== undefined) {
+                document.getElementById('totalFaces').textContent = data.total_faces;
+            }
+            
+            if (data.today_captures !== undefined) {
+                document.getElementById('todayCaptures').textContent = data.today_captures;
+            }
+            
+            if (data.storage_used !== undefined) {
+                document.getElementById('storageUsed').textContent = data.storage_used;
+            }
+            
+            // Update status indicators
+            if (data.recognition_ready !== undefined) {
+                const statusElement = document.getElementById('recognitionStatus');
+                if (statusElement) {
+                    statusElement.innerHTML = data.recognition_ready ? 
+                        '<i class="fas fa-check-circle mr-1"></i>Ready' :
+                        '<i class="fas fa-times-circle mr-1"></i>Not Ready';
+                    statusElement.className = `text-sm font-medium ${data.recognition_ready ? 'text-success' : 'text-danger'}`;
+                }
+            }
+            
+            if (data.encodings_ready !== undefined) {
+                const statusElement = document.getElementById('encodingsStatus');
+                if (statusElement) {
+                    statusElement.innerHTML = data.encodings_ready ? 
+                        '<i class="fas fa-check-circle mr-1"></i>Ready' :
+                        '<i class="fas fa-exclamation-circle mr-1"></i>Not Ready';
+                    statusElement.className = `text-sm font-medium ${data.encodings_ready ? 'text-success' : 'text-warning'}`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading statistics:', error);
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Load recent captures
+    loadRecentCaptures();
+    
+    // Load statistics
+    loadStatistics();
+    
+    // DOM elements
+    const startBtn = document.getElementById('startCameraBtn');
+    const stopBtn = document.getElementById('stopCameraBtn');
+    const flipBtn = document.getElementById('flipCamera');
+    const captureStudentBtn = document.getElementById('captureStudentBtn');
+    const captureClassBtn = document.getElementById('captureClassBtn');
+    const recognizeBtn = document.getElementById('recognizeBtn');
+    const encodeBtn = document.getElementById('encodeBtn');
+    
+    // Initialize camera manager
+    if (!cameraManager) {
+        cameraManager = {
+            isActive: false,
+            videoElement: document.getElementById('video'),
+            stream: null,
+            
+            startCamera: async function() {
+                try {
+                    const constraints = {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        }
+                    };
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.videoElement.srcObject = this.stream;
+                    this.isActive = true;
+                    
+                    // Update status
+                    document.getElementById('cameraStatusText').innerHTML = '<i class="fas fa-check-circle mr-1"></i>Online';
+                    document.getElementById('cameraStatusText').className = 'text-sm font-medium text-success';
+                    document.querySelector('#cameraStatus .status-indicator').className = 'status-indicator active';
+                    document.querySelector('#cameraStatus span:nth-child(2)').textContent = 'Camera Online';
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    toast('Failed to access camera', 'error');
+                    return false;
+                }
+            },
+            
+            stopCamera: function() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.videoElement.srcObject = null;
+                    this.stream = null;
+                    this.isActive = false;
+                    
+                    // Update status
+                    document.getElementById('cameraStatusText').innerHTML = '<i class="fas fa-times-circle mr-1"></i>Offline';
+                    document.getElementById('cameraStatusText').className = 'text-sm font-medium text-danger';
+                    document.querySelector('#cameraStatus .status-indicator').className = 'status-indicator inactive';
+                    document.querySelector('#cameraStatus span:nth-child(2)').textContent = 'Camera Offline';
+                }
+            },
+            
+            toggleCamera: function() {
+                // Implement camera flipping logic here
+                toast('Camera flip not implemented', 'info');
+            },
+            
+            captureFrame: function(format = 'blob') {
+                if (!this.isActive || !this.videoElement) return null;
+                
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d');
+                
+                // Set canvas dimensions
+                canvas.width = this.videoElement.videoWidth;
+                canvas.height = this.videoElement.videoHeight;
+                
+                // Draw video frame to canvas
+                context.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
+                
+                if (format === 'dataurl') {
+                    return canvas.toDataURL('image/jpeg', 0.9);
+                } else if (format === 'blob') {
+                    return new Promise(resolve => {
+                        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.9);
+                    });
+                }
+                
+                return null;
+            }
+        };
+    }
+    
+    // Camera control
+    if (startBtn) {
+        startBtn.addEventListener('click', async function() {
+            const success = await cameraManager.startCamera();
+            if (success) {
+                startBtn.classList.add('hidden');
+                if (stopBtn) stopBtn.classList.remove('hidden');
+                toast('Camera started', 'success');
+            }
+        });
+    }
+    
+    if (stopBtn) {
+        stopBtn.addEventListener('click', function() {
+            cameraManager.stopCamera();
+            if (startBtn) startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            toast('Camera stopped', 'info');
+        });
+    }
+    
+    if (flipBtn) {
+        flipBtn.addEventListener('click', function() {
+            if (cameraManager.isActive) {
+                cameraManager.toggleCamera();
+            }
+        });
+    }
+    
+    // Capture student face
+    if (captureStudentBtn) {
+        captureStudentBtn.addEventListener('click', async function() {
+            if (!cameraManager.isActive) {
+                toast('Please start camera first', 'error');
+                return;
+            }
+            
+            const studentId = document.getElementById('studentSelect').value;
+            if (!studentId) {
+                toast('Please select a student', 'error');
+                return;
+            }
+            
+            setLoading(this, true, 'Capturing...');
+            
+            try {
+                const imageData = await cameraManager.captureFrame('blob');
+                
+                if (!imageData) {
+                    toast('Failed to capture frame', 'error');
+                    return;
+                }
+                
+                // Send to server
+                const formData = new FormData();
+                formData.append('student_id', studentId);
+                formData.append('image', imageData, 'face.jpg');
+                
+                const response = await fetch('/api/capture_student', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    toast(`Face captured for ${data.student_name || 'student'}`, 'success');
+                    
+                    // Update recent captures
+                    loadRecentCaptures();
+                    
+                    // Update statistics
+                    loadStatistics();
+                } else {
+                    const error = await response.json();
+                    toast(error.error || 'Capture failed', 'error');
+                }
+            } catch (error) {
+                console.error('Capture error:', error);
+                toast('Capture failed', 'error');
+            } finally {
+                setLoading(captureStudentBtn, false);
+            }
+        });
+    }
+    
+    // Capture class photo
+    if (captureClassBtn) {
+        captureClassBtn.addEventListener('click', async function() {
+            if (!cameraManager.isActive) {
+                toast('Please start camera first', 'error');
+                return;
+            }
+            
+            const subjectId = document.getElementById('subjectSelect').value;
+            const teacherId = document.getElementById('teacherSelect').value;
+            
+            if (!subjectId) {
+                toast('Please select a subject', 'error');
+                return;
+            }
+            
+            setLoading(this, true, 'Capturing...');
+            
+            try {
+                const imageData = await cameraManager.captureFrame('blob');
+                
+                if (!imageData) {
+                    toast('Failed to capture frame', 'error');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('subject_id', subjectId);
+                formData.append('teacher_id', teacherId);
+                formData.append('image', imageData, 'class.jpg');
+                
+                const response = await fetch('/upload_photo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    toast('Class photo captured!', 'success');
+                    
+                    // Update recent captures
+                    loadRecentCaptures();
+                } else {
+                    toast('Capture failed', 'error');
+                }
+            } catch (error) {
+                console.error('Capture error:', error);
+                toast('Capture failed', 'error');
+            } finally {
+                setLoading(captureClassBtn, false);
+            }
+        });
+    }
+    
+    // Recognize faces
+    if (recognizeBtn) {
+        recognizeBtn.addEventListener('click', async function() {
+            const subjectId = document.getElementById('subjectSelect').value;
+            const teacherId = document.getElementById('teacherSelect').value;
+            const threshold = document.getElementById('thresholdSlider').value;
+            
+            if (!subjectId) {
+                toast('Please select a subject', 'error');
+                return;
+            }
+            
+            setLoading(this, true, 'Recognizing...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('subject_id', subjectId);
+                formData.append('teacher_id', teacherId);
+                formData.append('threshold', threshold);
+                
+                const response = await fetch('/recognize', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    toast(`Recognized ${data.recognized} of ${data.faces_found} faces`, 'success');
+                } else {
+                    toast('Recognition failed', 'error');
+                }
+            } catch (error) {
+                console.error('Recognition error:', error);
+                toast('Recognition failed', 'error');
+            } finally {
+                setLoading(recognizeBtn, false);
+            }
+        });
+    }
+    
+    // Encode faces
+    if (encodeBtn) {
+        encodeBtn.addEventListener('click', async function() {
+            if (!confirm('This will generate face encodings for all students. This may take a few minutes. Continue?')) {
+                return;
+            }
+            
+            setLoading(this, true, 'Encoding...');
+            
+            try {
+                const response = await fetch('/encode', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    toast(data.message || 'Face encodings generated', 'success');
+                    loadStatistics(); // Update status
+                } else {
+                    toast('Encoding failed', 'error');
+                }
+            } catch (error) {
+                console.error('Encode error:', error);
+                toast('Encoding failed', 'error');
+            } finally {
+                setLoading(encodeBtn, false);
+            }
+        });
+    }
+    
+    // Update threshold display
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdValue = document.getElementById('thresholdValue');
+    
+    if (thresholdSlider && thresholdValue) {
+        thresholdSlider.addEventListener('input', function() {
+            thresholdValue.textContent = this.value;
+        });
+    }
+    
+    // Capture mode selection
+    const singleCaptureBtn = document.getElementById('singleCaptureBtn');
+    const classCaptureBtn = document.getElementById('classCaptureBtn');
+    
+    if (singleCaptureBtn && classCaptureBtn) {
+        singleCaptureBtn.addEventListener('click', function() {
+            document.getElementById('singleCaptureSection').classList.remove('hidden');
+            document.getElementById('classCaptureSection').classList.add('hidden');
+            
+            // Update button states
+            singleCaptureBtn.classList.remove('bg-primary-600');
+            singleCaptureBtn.classList.add('bg-primary-700');
+            classCaptureBtn.classList.remove('bg-success-700');
+            classCaptureBtn.classList.add('bg-success-600');
+        });
+        
+        classCaptureBtn.addEventListener('click', function() {
+            document.getElementById('classCaptureSection').classList.remove('hidden');
+            document.getElementById('singleCaptureSection').classList.add('hidden');
+            
+            // Update button states
+            classCaptureBtn.classList.remove('bg-success-600');
+            classCaptureBtn.classList.add('bg-success-700');
+            singleCaptureBtn.classList.remove('bg-primary-700');
+            singleCaptureBtn.classList.add('bg-primary-600');
+        });
+    }
+    
+    // File upload handling
+    const uploadDropzone = document.getElementById('uploadDropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    if (uploadDropzone && fileInput && uploadBtn) {
+        uploadDropzone.addEventListener('click', () => fileInput.click());
+        
+        uploadDropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadDropzone.classList.add('dragover');
+        });
+        
+        uploadDropzone.addEventListener('dragleave', () => {
+            uploadDropzone.classList.remove('dragover');
+        });
+        
+        uploadDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadDropzone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        uploadBtn.addEventListener('click', async () => {
+            if (selectedImages.length === 0) {
+                toast('Please select images first', 'error');
+                return;
+            }
+            
+            setLoading(uploadBtn, true, 'Uploading...');
+            
+            try {
+                const formData = new FormData();
+                selectedImages.forEach((file, index) => {
+                    formData.append('images', file);
+                });
+                
+                const response = await fetch('/api/upload_faces', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    toast(`Uploaded ${data.uploaded} image(s)`, 'success');
+                    selectedImages = [];
+                    document.getElementById('uploadPreview').classList.add('hidden');
+                    document.getElementById('uploadPreview').innerHTML = '';
+                    
+                    // Refresh data
+                    loadRecentCaptures();
+                    loadStatistics();
+                } else {
+                    toast('Upload failed', 'error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                toast('Upload failed', 'error');
+            } finally {
+                setLoading(uploadBtn, false);
+            }
+        });
+    }
+    
+    function handleFiles(files) {
+        const previewContainer = document.getElementById('uploadPreview');
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            
+            // Check file type
+            if (!file.type.match('image.*')) {
+                toast(`Skipped ${file.name}: Not an image file`, 'warning');
+                continue;
+            }
+            
+            // Check file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                toast(`Skipped ${file.name}: File too large (max 5MB)`, 'warning');
+                continue;
+            }
+            
+            selectedImages.push(file);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.createElement('div');
+                preview.className = 'preview-item';
+                preview.innerHTML = `
+                    <img src="${e.target.result}" alt="${file.name}">
+                    <button type="button" onclick="removeUploadPreview(this)" 
+                            class="delete-btn">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                `;
+                previewContainer.appendChild(preview);
+                previewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        if (selectedImages.length > 0) {
+            toast(`Added ${selectedImages.length} image(s)`, 'success');
+        }
+    }
+});
+
+// Remove uploaded preview
+function removeUploadPreview(button) {
+    const previewItem = button.closest('.preview-item');
+    const index = Array.from(previewItem.parentNode.children).indexOf(previewItem);
+    
+    selectedImages.splice(index, 1);
+    previewItem.remove();
+    
+    if (selectedImages.length === 0) {
+        document.getElementById('uploadPreview').classList.add('hidden');
+    }
+}
+
+// Refresh every 30 seconds
+setInterval(() => {
+    if (window.location.pathname.includes('/capture')) {
+        loadRecentCaptures();
+        loadStatistics();
+    }
+}, 30000);
+</script>
+{% endblock %}

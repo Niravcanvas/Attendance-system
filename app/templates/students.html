@@ -1,0 +1,680 @@
+<!-- students.html - FIXED VERSION -->
+{% extends "base.html" %}
+{% set active_page = 'students' %}
+{% block title %}Students • AI Attendance{% endblock %}
+
+{% block head %}
+<style>
+    .student-card {
+        transition: all 0.2s ease;
+    }
+    
+    .student-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    
+    .face-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .upload-dropzone {
+        border: 2px dashed #4b5563;
+        border-radius: 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .upload-dropzone.drag-over {
+        border-color: #3b82f6;
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+    
+    .image-preview {
+        position: relative;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .image-preview img {
+        transition: transform 0.3s ease;
+    }
+    
+    .image-preview:hover img {
+        transform: scale(1.05);
+    }
+    
+    .image-preview .delete-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    
+    .image-preview:hover .delete-btn {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
+                    <i class="fas fa-users mr-3"></i>Student Management
+                </h1>
+                <p class="text-gray-400">Register new students and manage existing records</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1.5 bg-gray-700 rounded-lg text-sm font-medium text-gray-300">
+                    <i class="fas fa-user-graduate mr-2"></i>{{ students|length }} Registered
+                </span>
+                <button onclick="showAddStudentModal()"
+                        class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center">
+                    <i class="fas fa-user-plus mr-2"></i>Add Student
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6">
+        <form method="GET" action="{{ url_for('students') }}" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Search -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-2">Search Students</label>
+                    <div class="relative">
+                        <input type="text" 
+                               name="search" 
+                               value="{{ search }}"
+                               placeholder="Search by name, roll number, or department..."
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 pl-10 text-sm">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                    </div>
+                </div>
+
+                <!-- Department Filter -->
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Department</label>
+                    <select name="department" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>
+                            {{ dept }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-end">
+                    <button type="submit" 
+                            class="w-full px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200">
+                        <i class="fas fa-search mr-2"></i>Search
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Students Grid -->
+    {% if students %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {% for student in students %}
+        <div class="student-card bg-gray-800 border border-gray-700 rounded-xl p-5 hover:border-primary-500"
+             data-student-id="{{ student.id }}"
+             data-student-name="{{ student.name|js_escape }}"
+             data-student-roll="{{ student.roll_no|js_escape if student.roll_no else '' }}"
+             data-student-dept="{{ student.department|js_escape if student.department else '' }}">
+            <!-- Student Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold text-lg">
+                        {{ student.name[0]|upper }}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-white">{{ student.name }}</h3>
+                        <div class="flex items-center gap-2 mt-1">
+                            {% if student.roll_no %}
+                            <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                                {{ student.roll_no }}
+                            </span>
+                            {% endif %}
+                            <span class="face-count-badge" title="{{ student.face_count }} face images">
+                                <i class="fas fa-camera text-xs"></i>
+                                <span class="text-xs">{{ student.face_count or 0 }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <button onclick="toggleStudentMenu({{ student.id }})"
+                            class="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded-lg">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div id="studentMenu{{ student.id }}" 
+                         class="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg hidden z-10">
+                        <button onclick="editStudentFromCard(this)"
+                                class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
+                            <i class="fas fa-edit mr-3"></i>Edit
+                        </button>
+                        <button onclick="addFaceImagesFromCard(this)"
+                                class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
+                            <i class="fas fa-camera mr-3"></i>Add Face Images
+                        </button>
+                        <form method="POST" action="{{ url_for('students') }}" class="w-full">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="student_id" value="{{ student.id }}">
+                            <button type="submit" 
+                                    onclick="return confirm('Delete student \"{{ student.name }}\"? This will remove all their attendance records and face images.');"
+                                    class="w-full text-left px-4 py-3 text-danger-400 hover:bg-gray-800 transition-colors">
+                                <i class="fas fa-trash mr-3"></i>Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Info -->
+            <div class="space-y-3 mb-4">
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-building text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Department:</span>
+                    <span class="text-white ml-2">{{ student.department or 'Not specified' }}</span>
+                </div>
+                
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-calendar-check text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Attendance:</span>
+                    <span class="text-white ml-2">{{ student.attendance_count or 0 }} records</span>
+                </div>
+                
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-images text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Face Images:</span>
+                    <span class="text-white ml-2">{{ student.face_count or 0 }}</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2 pt-4 border-t border-gray-700">
+                <button onclick="viewStudentDetails({{ student.id }})"
+                        class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-sm font-medium rounded-lg transition-colors">
+                    <i class="fas fa-eye mr-1"></i> View
+                </button>
+                <button onclick="editStudentFromCard(this)"
+                        class="flex-1 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-sm font-medium rounded-lg transition-colors">
+                    <i class="fas fa-edit mr-1"></i> Edit
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if students|length >= 20 %}
+    <div class="flex justify-center mt-8">
+        <nav class="flex items-center gap-2">
+            <button class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="px-3 py-2 bg-primary-600 border border-primary-500 rounded-lg text-white">1</button>
+            <button class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700">2</button>
+            <button class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700">3</button>
+            <span class="px-2 text-gray-500">...</span>
+            <button class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700">10</button>
+            <button class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-16 bg-gray-800 border border-gray-700 rounded-2xl">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-700 mb-4">
+            <i class="fas fa-users text-gray-500 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-medium text-white mb-2">No Students Found</h3>
+        <p class="text-gray-400 mb-6">
+            {% if search or selected_department %}
+                No students match your search criteria.
+            {% else %}
+                Get started by adding your first student.
+            {% endif %}
+        </p>
+        <button onclick="showAddStudentModal()"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+            <i class="fas fa-user-plus"></i> Add First Student
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Student Modal -->
+<div id="studentModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-gray-900 rounded-2xl border border-gray-800 max-w-md w-full max-h-[90vh] overflow-hidden">
+        <div class="p-6 border-b border-gray-800">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white" id="modalTitle">Add New Student</h3>
+                <button onclick="closeStudentModal()" 
+                        class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i class="fas fa-times text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+        
+        <form id="studentForm" method="POST" action="{{ url_for('students') }}" enctype="multipart/form-data" 
+              class="p-6 overflow-y-auto space-y-6">
+            <input type="hidden" name="action" id="formAction" value="add">
+            <input type="hidden" name="student_id" id="formStudentId">
+            
+            <!-- Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Student Name *</label>
+                <input type="text" 
+                       name="name" 
+                       id="studentName"
+                       required
+                       class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                       placeholder="Enter full name">
+            </div>
+            
+            <!-- Roll Number -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Roll Number</label>
+                <input type="text" 
+                       name="roll_no" 
+                       id="studentRollNo"
+                       class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                       placeholder="Optional roll number">
+            </div>
+            
+            <!-- Department -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Department</label>
+                <select name="department" 
+                        id="studentDepartment"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white">
+                    <option value="">Select Department</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                    <option value="Other">Other</option>
+                </select>
+                <input type="text" 
+                       name="new_department" 
+                       id="newDepartment"
+                       placeholder="Enter new department"
+                       class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 mt-2 hidden">
+            </div>
+            
+            <!-- Face Images -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Face Images</label>
+                <div class="upload-dropzone rounded-xl p-6 text-center cursor-pointer"
+                     onclick="document.getElementById('faceImages').click()"
+                     ondrop="handleDrop(event)"
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)">
+                    <i class="fas fa-cloud-upload-alt text-gray-500 text-3xl mb-3"></i>
+                    <p class="text-gray-400 mb-1">Drop face images here or click to browse</p>
+                    <p class="text-xs text-gray-500">Upload 3-5 clear face images with different angles</p>
+                    <input type="file" 
+                           id="faceImages"
+                           name="images"
+                           multiple
+                           accept="image/*"
+                           class="hidden"
+                           onchange="handleImageSelection(this)">
+                </div>
+                
+                <!-- Image Previews -->
+                <div id="imagePreviews" class="grid grid-cols-4 gap-2 mt-4 hidden"></div>
+                
+                <!-- Upload Guidelines -->
+                <div class="mt-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <h4 class="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>Upload Guidelines
+                    </h4>
+                    <ul class="text-xs text-gray-500 space-y-1">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
+                            <span>Clear, well-lit face images</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
+                            <span>Different angles (front, left, right)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
+                            <span>No sunglasses or face coverings</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
+                            <span>Maximum 5MB per image</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="flex gap-3 pt-6 border-t border-gray-800">
+                <button type="button" 
+                        onclick="closeStudentModal()"
+                        class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        id="submitBtn"
+                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                    <span id="submitText">Add Student</span>
+                    <i class="fas fa-spinner fa-spin hidden ml-2" id="submitSpinner"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Student management functions
+let selectedImages = [];
+
+function showAddStudentModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Student';
+    document.getElementById('formAction').value = 'add';
+    document.getElementById('formStudentId').value = '';
+    document.getElementById('studentName').value = '';
+    document.getElementById('studentRollNo').value = '';
+    document.getElementById('studentDepartment').value = '';
+    document.getElementById('submitText').textContent = 'Add Student';
+    
+    // Clear image previews
+    selectedImages = [];
+    document.getElementById('imagePreviews').innerHTML = '';
+    document.getElementById('imagePreviews').classList.add('hidden');
+    
+    // Show modal
+    document.getElementById('studentModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function editStudent(id, name, rollNo, department) {
+    document.getElementById('modalTitle').textContent = 'Edit Student';
+    document.getElementById('formAction').value = 'edit';
+    document.getElementById('formStudentId').value = id;
+    document.getElementById('studentName').value = name;
+    document.getElementById('studentRollNo').value = rollNo || '';
+    document.getElementById('studentDepartment').value = department || '';
+    document.getElementById('submitText').textContent = 'Update Student';
+    
+    // Clear image previews
+    selectedImages = [];
+    document.getElementById('imagePreviews').innerHTML = '';
+    document.getElementById('imagePreviews').classList.add('hidden');
+    
+    // Show modal
+    document.getElementById('studentModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function editStudentFromCard(button) {
+    const card = button.closest('.student-card');
+    const id = card.getAttribute('data-student-id');
+    const name = card.getAttribute('data-student-name');
+    const rollNo = card.getAttribute('data-student-roll');
+    const department = card.getAttribute('data-student-dept');
+    
+    editStudent(id, name, rollNo, department);
+}
+
+function addFaceImagesFromCard(button) {
+    const card = button.closest('.student-card');
+    const id = card.getAttribute('data-student-id');
+    const name = card.getAttribute('data-student-name');
+    
+    toast(`Add face images for ${name}`, 'info');
+}
+
+function closeStudentModal() {
+    document.getElementById('studentModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function toggleStudentMenu(studentId) {
+    const menu = document.getElementById(`studentMenu${studentId}`);
+    const allMenus = document.querySelectorAll('[id^="studentMenu"]');
+    
+    // Close all other menus
+    allMenus.forEach(m => {
+        if (m.id !== `studentMenu${studentId}`) {
+            m.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current menu
+    menu.classList.toggle('hidden');
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.relative')) {
+        document.querySelectorAll('[id^="studentMenu"]').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+    }
+});
+
+function viewStudentDetails(id) {
+    toast('Student details view coming soon', 'info');
+}
+
+// Image upload handling
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+    
+    const files = event.dataTransfer.files;
+    handleFiles(files);
+}
+
+function handleImageSelection(input) {
+    const files = input.files;
+    handleFiles(files);
+}
+
+function handleFiles(files) {
+    const previewsContainer = document.getElementById('imagePreviews');
+    previewsContainer.innerHTML = '';
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check file type
+        if (!file.type.match('image.*')) {
+            toast(`Skipped ${file.name}: Not an image file`, 'warning');
+            continue;
+        }
+        
+        // Check file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            toast(`Skipped ${file.name}: File too large (max 5MB)`, 'warning');
+            continue;
+        }
+        
+        selectedImages.push(file);
+        
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.createElement('div');
+            preview.className = 'image-preview';
+            preview.innerHTML = `
+                <img src="${e.target.result}" class="w-full h-20 object-cover rounded">
+                <button type="button" onclick="removeImage(${selectedImages.length - 1})" 
+                        class="delete-btn p-1 bg-danger-600 hover:bg-danger-700 text-white rounded">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            previewsContainer.appendChild(preview);
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    if (selectedImages.length > 0) {
+        previewsContainer.classList.remove('hidden');
+        toast(`Added ${selectedImages.length} image(s)`, 'success');
+    }
+}
+
+function removeImage(index) {
+    selectedImages.splice(index, 1);
+    updateImagePreviews();
+}
+
+function updateImagePreviews() {
+    const previewsContainer = document.getElementById('imagePreviews');
+    previewsContainer.innerHTML = '';
+    
+    if (selectedImages.length === 0) {
+        previewsContainer.classList.add('hidden');
+        return;
+    }
+    
+    selectedImages.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.createElement('div');
+            preview.className = 'image-preview';
+            preview.innerHTML = `
+                <img src="${e.target.result}" class="w-full h-20 object-cover rounded">
+                <button type="button" onclick="removeImage(${index})" 
+                        class="delete-btn p-1 bg-danger-600 hover:bg-danger-700 text-white rounded">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            previewsContainer.appendChild(preview);
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    previewsContainer.classList.remove('hidden');
+}
+
+// Department selection
+document.getElementById('studentDepartment').addEventListener('change', function() {
+    const newDeptInput = document.getElementById('newDepartment');
+    if (this.value === 'Other') {
+        newDeptInput.classList.remove('hidden');
+        newDeptInput.required = true;
+    } else {
+        newDeptInput.classList.add('hidden');
+        newDeptInput.required = false;
+        newDeptInput.value = '';
+    }
+});
+
+// Form submission
+document.getElementById('studentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+    const submitSpinner = document.getElementById('submitSpinner');
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.textContent = 'Processing...';
+    submitSpinner.classList.remove('hidden');
+    
+    // Create FormData
+    const formData = new FormData(this);
+    
+    // Add selected images
+    selectedImages.forEach((file, index) => {
+        formData.append('images', file);
+    });
+    
+    // Submit form
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.json ? response.json() : { success: true };
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Error saving student');
+            });
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            toast(data.message || 'Student saved successfully', 'success');
+            closeStudentModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.error || 'Error saving student');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toast(error.message || 'Error saving student', 'error');
+        submitBtn.disabled = false;
+        submitText.textContent = document.getElementById('formAction').value === 'add' ? 'Add Student' : 'Update Student';
+        submitSpinner.classList.add('hidden');
+    });
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeStudentModal();
+        }
+    });
+    
+    // Close modal on background click
+    document.getElementById('studentModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeStudentModal();
+        }
+    });
+});
+</script>
+{% endblock %}

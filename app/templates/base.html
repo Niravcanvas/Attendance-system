@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block title %}AI Attendance System{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        success: {
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        warning: {
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        danger: {
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Custom Styles -->
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        /* Loading animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        /* Card hover effects */
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Print styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+        }
+        
+        /* Gradient backgrounds */
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Status indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-indicator.active {
+            background-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+        }
+        .status-indicator.inactive {
+            background-color: #ef4444;
+        }
+        .status-indicator.warning {
+            background-color: #f59e0b;
+        }
+    </style>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-dark-950 text-gray-100 min-h-screen flex flex-col">
+    {% if session.user_id %}
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-50 bg-dark-900/90 backdrop-blur-md border-b border-dark-700 shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="{{ url_for('index') }}" class="flex items-center space-x-3 no-underline group">
+                        <div class="w-10 h-10 rounded-lg gradient-bg flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <i class="fas fa-robot text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-white">AI Attendance</h1>
+                            <p class="text-xs text-gray-400">
+                                {{ session.full_name }} • {{ session.user_role|title }}
+                                {% if session.department %} • {{ session.department }}{% endif %}
+                            </p>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex items-center space-x-1">
+                    <a href="{{ url_for('index') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'bg-primary-600 text-white shadow-lg' if active_page == 'dashboard' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    
+                    {% if session.user_role in ['admin', 'teacher'] %}
+                    <a href="{{ url_for('capture_page') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'bg-primary-600 text-white shadow-lg' if active_page == 'capture' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                        <i class="fas fa-camera mr-2"></i>Capture
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('attendance') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'bg-primary-600 text-white shadow-lg' if active_page == 'attendance' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                        <i class="fas fa-calendar-check mr-2"></i>
+                        {% if session.user_role == 'student' %}My Attendance{% else %}Attendance{% endif %}
+                    </a>
+                    
+                    {% if session.user_role == 'admin' %}
+                    <a href="{{ url_for('students') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'bg-primary-600 text-white shadow-lg' if active_page == 'students' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                        <i class="fas fa-users mr-2"></i>Students
+                    </a>
+                    
+                    <div class="relative group">
+                        <button class="px-4 py-2 rounded-lg text-gray-300 hover:bg-dark-700 hover:text-white transition-all duration-200 flex items-center">
+                            <i class="fas fa-cog mr-2"></i>Admin
+                            <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        </button>
+                        <div class="absolute right-0 mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform -translate-y-2 group-hover:translate-y-0">
+                            <a href="{{ url_for('subjects_page') }}" class="block px-4 py-3 text-gray-300 hover:bg-dark-700 hover:text-white transition-colors border-b border-dark-700">
+                                <i class="fas fa-book mr-2"></i>Subjects
+                            </a>
+                            <a href="{{ url_for('users_page') }}" class="block px-4 py-3 text-gray-300 hover:bg-dark-700 hover:text-white transition-colors">
+                                <i class="fas fa-user-cog mr-2"></i>Users
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </nav>
+
+                <!-- User Menu -->
+                <div class="flex items-center space-x-3">
+                    <span class="hidden sm:inline text-sm text-gray-400">{{ session.username }}</span>
+                    <a href="{{ url_for('logout') }}" 
+                       class="px-4 py-2 bg-dark-700 hover:bg-danger-600 text-sm font-medium rounded-lg transition-all duration-200 hover:scale-105">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </a>
+                    
+                    <!-- Mobile Menu Button -->
+                    <button id="mobileMenuButton" class="md:hidden text-gray-300 hover:text-white p-2 rounded-lg hover:bg-dark-700">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div id="mobileMenu" class="md:hidden bg-dark-800 border-t border-dark-700 hidden shadow-lg">
+            <div class="container mx-auto px-4 py-3 space-y-1">
+                <a href="{{ url_for('index') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'dashboard' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-home mr-3"></i>Dashboard
+                </a>
+                
+                {% if session.user_role in ['admin', 'teacher'] %}
+                <a href="{{ url_for('capture_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'capture' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-camera mr-3"></i>Capture
+                </a>
+                {% endif %}
+                
+                <a href="{{ url_for('attendance') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'attendance' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-calendar-check mr-3"></i>
+                    {% if session.user_role == 'student' %}My Attendance{% else %}Attendance{% endif %}
+                </a>
+                
+                {% if session.user_role == 'admin' %}
+                <a href="{{ url_for('students') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'students' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-users mr-3"></i>Students
+                </a>
+                <a href="{{ url_for('subjects_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'subjects' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-book mr-3"></i>Subjects
+                </a>
+                <a href="{{ url_for('users_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'users' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-user-cog mr-3"></i>Users
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6 space-y-3">
+                    {% for category, message in messages %}
+                        <div class="px-4 py-3 rounded-lg border shadow-lg 
+                            {% if category == 'success' %}bg-success-900/30 border-success-700 text-success-300
+                            {% elif category == 'error' %}bg-danger-900/30 border-danger-700 text-danger-300
+                            {% elif category == 'warning' %}bg-warning-900/30 border-warning-700 text-warning-300
+                            {% else %}bg-primary-900/30 border-primary-700 text-primary-300{% endif %}">
+                            <div class="flex items-center">
+                                <i class="fas 
+                                    {% if category == 'success' %}fa-check-circle
+                                    {% elif category == 'error' %}fa-exclamation-circle
+                                    {% elif category == 'warning' %}fa-exclamation-triangle
+                                    {% else %}fa-info-circle{% endif %}
+                                    mr-3 text-lg"></i>
+                                <span>{{ message }}</span>
+                                <button class="ml-auto text-gray-400 hover:text-white" onclick="this.parentElement.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% if session.user_id %}
+    <footer class="bg-dark-900 border-t border-dark-800 py-4 mt-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-sm text-gray-500 mb-2 md:mb-0">
+                    <i class="fas fa-robot mr-2"></i>AI Attendance System v1.0
+                </div>
+                <div class="text-xs text-gray-600 flex items-center space-x-4">
+                    <span>Logged in as {{ session.full_name }} ({{ session.user_role|title }})</span>
+                    {% if session.department %}
+                    <span class="hidden sm:inline">• {{ session.department }}</span>
+                    {% endif %}
+                    <span>• {{ now.strftime('%Y-%m-%d %H:%M') if now else '' }}</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-3 w-80"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center">
+        <div class="bg-dark-800 rounded-xl p-8 shadow-2xl text-center">
+            <div class="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-white text-lg font-medium" id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobileMenuButton')?.addEventListener('click', function() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('mobileMenu');
+            const button = document.getElementById('mobileMenuButton');
+            
+            if (menu && button && !menu.contains(event.target) && !button.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        // Toast notification system
+        window.toast = function(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast px-4 py-3 rounded-lg transform transition-all duration-300 translate-x-full opacity-0 ${getToastClass(type)}`;
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <i class="${getToastIcon(type)} mr-3 text-lg"></i>
+                    <div class="flex-1 text-sm">${message}</div>
+                    <button class="ml-3 text-gray-300 hover:text-white transition-colors" 
+                            onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+                toast.classList.add('translate-x-0', 'opacity-100');
+            });
+
+            // Auto remove
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-0', 'opacity-100');
+                    toast.classList.add('translate-x-full', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }, duration);
+            }
+
+            return toast;
+        };
+
+        function getToastClass(type) {
+            switch(type) {
+                case 'success': return 'bg-success-800 border-l-4 border-success-500';
+                case 'error': return 'bg-danger-800 border-l-4 border-danger-500';
+                case 'warning': return 'bg-warning-800 border-l-4 border-warning-500';
+                default: return 'bg-primary-800 border-l-4 border-primary-500';
+            }
+        }
+
+        function getToastIcon(type) {
+            switch(type) {
+                case 'success': return 'fas fa-check-circle';
+                case 'error': return 'fas fa-exclamation-circle';
+                case 'warning': return 'fas fa-exclamation-triangle';
+                default: return 'fas fa-info-circle';
+            }
+        }
+
+        // Loading overlay
+        window.showLoading = function(message = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const text = document.getElementById('loadingText');
+            if (overlay && text) {
+                text.textContent = message;
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        window.hideLoading = function() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+        };
+
+        // Global AJAX error handler
+        document.addEventListener('DOMContentLoaded', function() {
+            // Intercept all AJAX calls
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                return originalFetch.apply(this, args)
+                    .then(response => {
+                        if (!response.ok && response.status === 401) {
+                            // Unauthorized - redirect to login
+                            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                            throw new Error('Unauthorized');
+                        }
+                        if (!response.ok && response.status === 403) {
+                            toast('You do not have permission to perform this action', 'error');
+                            throw new Error('Forbidden');
+                        }
+                        return response;
+                    })
+                    .catch(error => {
+                        if (error.message !== 'Unauthorized' && error.message !== 'Forbidden') {
+                            console.error('Fetch error:', error);
+                            toast('An error occurred. Please try again.', 'error');
+                        }
+                        throw error;
+                    });
+            };
+        });
+
+        // Confirm before dangerous actions
+        window.confirmAction = function(message, callback) {
+            if (confirm(message)) {
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            }
+        };
+
+        // Loading state helper for buttons
+        window.setLoading = function(element, isLoading, loadingText = 'Processing...') {
+            if (isLoading) {
+                element.disabled = true;
+                const originalText = element.innerHTML;
+                element.setAttribute('data-original-text', originalText);
+                element.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
+            } else {
+                element.disabled = false;
+                const originalText = element.getAttribute('data-original-text');
+                if (originalText) {
+                    element.innerHTML = originalText;
+                }
+            }
+        };
+
+        // Form submission helper
+        window.submitForm = async function(formElement, options = {}) {
+            const form = formElement instanceof HTMLFormElement ? formElement : document.querySelector(formElement);
+            if (!form) return;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) setLoading(submitBtn, true, options.loadingText);
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: form.method,
+                    body: formData
+                });
+
+                if (response.ok) {
+                    if (options.success) {
+                        options.success(response);
+                    } else if (options.redirect) {
+                        window.location.href = options.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    const error = await response.text();
+                    toast(options.errorMessage || 'Error submitting form', 'error');
+                    console.error('Form submission error:', error);
+                }
+            } catch (error) {
+                toast('Network error. Please try again.', 'error');
+                console.error('Form submission error:', error);
+            } finally {
+                if (submitBtn) setLoading(submitBtn, false);
+            }
+        };
+
+        // Copy to clipboard
+        window.copyToClipboard = function(text, successMessage = 'Copied to clipboard!') {
+            navigator.clipboard.writeText(text)
+                .then(() => toast(successMessage, 'success'))
+                .catch(err => {
+                    console.error('Failed to copy:', err);
+                    toast('Failed to copy', 'error');
+                });
+        };
+
+        // Format date
+        window.formatDate = function(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        };
+
+        // Initialize theme (if you want to add theme switching)
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

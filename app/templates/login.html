@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Login • AI Attendance{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-dark-900 to-dark-950 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <!-- Logo & Title -->
+        <div class="text-center">
+            <div class="mx-auto w-24 h-24 rounded-2xl gradient-bg flex items-center justify-center mb-6 shadow-2xl">
+                <i class="fas fa-robot text-white text-4xl"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-white mb-2">AI Attendance System</h2>
+            <p class="text-gray-400">Face Recognition Based Attendance</p>
+        </div>
+
+        <!-- Login Form -->
+        <div class="bg-dark-800/50 backdrop-blur-sm border border-dark-700 rounded-2xl p-8 shadow-2xl">
+            <form method="POST" action="{{ url_for('login') }}" class="space-y-6" id="loginForm">
+                <!-- Username -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-user mr-2"></i>Username
+                    </label>
+                    <input type="text" 
+                           id="username"
+                           name="username" 
+                           required
+                           autocomplete="username"
+                           autofocus
+                           class="w-full px-4 py-3 bg-dark-900 border border-dark-700 rounded-xl text-white placeholder-gray-500
+                                  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                  transition duration-200"
+                           placeholder="Enter your username">
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-lock mr-2"></i>Password
+                    </label>
+                    <div class="relative">
+                        <input type="password" 
+                               id="password"
+                               name="password" 
+                               required
+                               autocomplete="current-password"
+                               class="w-full px-4 py-3 bg-dark-900 border border-dark-700 rounded-xl text-white placeholder-gray-500
+                                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                      transition duration-200 pr-10"
+                               placeholder="Enter your password">
+                        <button type="button" 
+                                onclick="togglePasswordVisibility()"
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                            <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" 
+                        class="w-full py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 
+                               text-white font-semibold rounded-xl transition duration-200 transform hover:scale-[1.02] 
+                               focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-900">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+                </button>
+            </form>
+
+            <!-- Demo Credentials -->
+            <div class="pt-6 border-t border-dark-700">
+                <h4 class="text-sm font-semibold text-gray-300 mb-3">
+                    <i class="fas fa-info-circle mr-2"></i>Demo Credentials
+                </h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center justify-between p-3 bg-dark-900/50 rounded-lg hover:bg-dark-900 transition-colors">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-danger-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-crown text-danger-400 text-xs"></i>
+                            </div>
+                            <span class="font-medium text-gray-300">Administrator</span>
+                        </div>
+                        <code class="bg-dark-900 px-3 py-1 rounded text-xs font-mono text-gray-300">admin / admin123</code>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-dark-900/50 rounded-lg hover:bg-dark-900 transition-colors">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-primary-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-chalkboard-teacher text-primary-400 text-xs"></i>
+                            </div>
+                            <span class="font-medium text-gray-300">Teacher</span>
+                        </div>
+                        <code class="bg-dark-900 px-3 py-1 rounded text-xs font-mono text-gray-300">teacher1 / teacher123</code>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-dark-900/50 rounded-lg hover:bg-dark-900 transition-colors">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-success-900/30 flex items-center justify-center mr-3">
+                                <i class="fas fa-user-graduate text-success-400 text-xs"></i>
+                            </div>
+                            <span class="font-medium text-gray-300">Student</span>
+                        </div>
+                        <code class="bg-dark-900 px-3 py-1 rounded text-xs font-mono text-gray-300">student1 / student123</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-sm text-gray-500">
+            <p>AI Attendance System • Secure Face Recognition</p>
+            <p class="mt-1">v1.0 • Built with Flask & InsightFace</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toggle password visibility
+    function togglePasswordVisibility() {
+        const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('passwordToggleIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    }
+
+    // Form validation
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!username || !password) {
+            e.preventDefault();
+            toast('Please fill in all fields', 'error');
+        }
+    });
+
+    // Auto-focus username field
+    document.getElementById('username').focus();
+
+    // Enter key to submit
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && document.activeElement.id === 'password') {
+            document.getElementById('loginForm').submit();
+        }
+    });
+</script>
+{% endblock %}

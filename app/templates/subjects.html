@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% set active_page = 'subjects' %}
+{% block title %}Subjects • AI Attendance{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
+                    <i class="fas fa-book mr-3"></i>Subject Management
+                </h1>
+                <p class="text-gray-400">Manage subjects and assign teachers</p>
+            </div>
+            <button onclick="showAddSubjectModal()"
+                    class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center">
+                <i class="fas fa-plus mr-2"></i>Add Subject
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Subject Form -->
+    <div id="addSubjectModal" class="bg-gray-800 border border-gray-700 rounded-2xl p-6 mb-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Add New Subject</h2>
+        <form method="POST" action="{{ url_for('subjects_page') }}" class="space-y-4">
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Subject Name *</label>
+                    <input type="text" name="subject_name" required
+                           class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white"
+                           placeholder="Enter subject name (e.g. Mathematics)">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Department</label>
+                    <input type="text" name="department"
+                           class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white"
+                           placeholder="Enter department (e.g. Computer Science)"
+                           value="General">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                <button type="reset" onclick="hideAddSubjectModal()"
+                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors duration-200">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200">
+                    <i class="fas fa-save mr-2"></i>Add Subject
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Subjects Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for subject in subjects %}
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 hover:border-primary-500 transition-colors">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-primary-900/30 flex items-center justify-center">
+                        <i class="fas fa-book text-primary-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-white">{{ subject.subject_name }}</h3>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                                {{ subject.department }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <button onclick="toggleSubjectMenu({{ subject.id }})"
+                            class="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded-lg">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div id="subjectMenu{{ subject.id }}" 
+                         class="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg hidden z-10">
+<button onclick="assignTeacherToSubject({{ subject.id }}, {{ subject.subject_name|tojson|safe }})"                                class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
+                            <i class="fas fa-user-tie mr-3"></i>Assign Teacher
+                        </button>
+                        <div class="border-t border-gray-700"></div>
+                        <form action="{{ url_for('delete_subject', subject_id=subject.id) }}" method="POST" class="w-full">
+                            <button type="submit" 
+                                    onclick="return confirm('Delete subject \"{{ subject.subject_name }}\"?')"
+                                    class="w-full text-left px-4 py-3 text-danger-300 hover:bg-danger-900/30 transition-colors">
+                                <i class="fas fa-trash mr-3"></i>Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Info -->
+            <div class="space-y-3 mb-4">
+                {% if subject.teacher_name %}
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-chalkboard-teacher text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Teacher:</span>
+                    <span class="text-white ml-2">{{ subject.teacher_name }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-building text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Department:</span>
+                    <span class="text-white ml-2">{{ subject.department }}</span>
+                </div>
+                
+                <div class="flex items-center text-sm">
+                    <i class="fas fa-calendar text-gray-500 mr-3 w-5"></i>
+                    <span class="text-gray-400">Created:</span>
+                    <span class="text-white ml-2">{{ subject.created_at[:10] }}</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2 pt-4 border-t border-gray-700">
+                <button onclick="viewSubjectSessions({{ subject.id }}, {{ subject.subject_name|tojson|safe }})"
+                        class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-sm font-medium rounded-lg transition-colors">
+                    <i class="fas fa-eye mr-1"></i> View Sessions
+                </button>
+                <button onclick="assignTeacherToSubject({{ subject.id }}, {{ subject.subject_name|tojson|safe }})"
+                        class="flex-1 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-sm font-medium rounded-lg transition-colors">
+                    <i class="fas fa-user-tie mr-1"></i> Assign Teacher
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not subjects %}
+    <!-- Empty State -->
+    <div class="text-center py-16 bg-gray-800 border border-gray-700 rounded-2xl">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-700 mb-4">
+            <i class="fas fa-book text-gray-500 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-medium text-white mb-2">No Subjects Found</h3>
+        <p class="text-gray-400 mb-6">Get started by adding your first subject.</p>
+        <button onclick="showAddSubjectModal()"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+            <i class="fas fa-plus"></i> Add First Subject
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Assign Teacher Modal -->
+<div id="assignTeacherModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-gray-900 rounded-2xl border border-gray-800 max-w-md w-full">
+        <div class="p-6 border-b border-gray-800">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white" id="assignModalTitle">Assign Teacher</h3>
+                <button onclick="closeAssignModal()" 
+                        class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i class="fas fa-times text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+        
+        <form id="assignTeacherForm" method="POST" action="{{ url_for('assign_subject_teacher') }}" 
+              class="p-6 space-y-6">
+            <input type="hidden" name="subject_id" id="assignSubjectId">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Select Teacher</label>
+                <select name="teacher_id" 
+                        id="teacherSelect"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white">
+                    <option value="">-- Select Teacher --</option>
+                    {% for teacher in teachers %}
+                    <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="flex gap-3 pt-6 border-t border-gray-800">
+                <button type="button" 
+                        onclick="closeAssignModal()"
+                        class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                    Assign Teacher
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Subject management functions
+function showAddSubjectModal() {
+    document.getElementById('addSubjectModal').style.display = 'block';
+}
+
+function hideAddSubjectModal() {
+    document.getElementById('addSubjectModal').style.display = 'none';
+}
+
+function toggleSubjectMenu(subjectId) {
+    const menu = document.getElementById(`subjectMenu${subjectId}`);
+    const allMenus = document.querySelectorAll('[id^="subjectMenu"]');
+    
+    // Close all other menus
+    allMenus.forEach(m => {
+        if (m.id !== `subjectMenu${subjectId}`) {
+            m.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current menu
+    menu.classList.toggle('hidden');
+}
+
+function assignTeacherToSubject(subjectId, subjectName) {
+    document.getElementById('assignModalTitle').textContent = `Assign Teacher to ${subjectName}`;
+    document.getElementById('assignSubjectId').value = subjectId;
+    document.getElementById('assignTeacherModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAssignModal() {
+    document.getElementById('assignTeacherModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function viewSubjectSessions(subjectId, subjectName) {
+    toast(`Viewing sessions for ${subjectName}`, 'info');
+    // In a future update, this could open a modal with session details
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.relative')) {
+        document.querySelectorAll('[id^="subjectMenu"]').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+    }
+});
+
+// Form submission
+document.getElementById('assignTeacherForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            toast('Teacher assigned successfully', 'success');
+            closeAssignModal();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            return response.text().then(text => {
+                throw new Error(text || 'Error assigning teacher');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        toast(error.message || 'Error assigning teacher', 'error');
+    });
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Close modals on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAssignModal();
+            hideAddSubjectModal();
+        }
+    });
+    
+    // Close modals on background click
+    document.getElementById('assignTeacherModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeAssignModal();
+        }
+    });
+});
+</script>
+{% endblock %}

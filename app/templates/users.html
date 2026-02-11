@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% set active_page = 'users' %}
+{% block title %}User Management • AI Attendance{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
+                    <i class="fas fa-users-cog mr-3"></i>User Management
+                </h1>
+                <p class="text-gray-400">Manage system users and permissions</p>
+            </div>
+            <button onclick="showAddUserModal()"
+                    class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center">
+                <i class="fas fa-user-plus mr-2"></i>Add User
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- User List -->
+        <div class="lg:col-span-2">
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
+                <!-- Table Header -->
+                <div class="p-6 border-b border-gray-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-xl font-semibold text-white">All Users</h2>
+                            <p class="text-sm text-gray-400">{{ users|length }} users in system</p>
+                        </div>
+                        <span class="px-3 py-1 bg-gray-700 rounded-full text-sm text-gray-300">
+                            {{ session.user_role|title }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    {% if users %}
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-900">
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">ID</th>
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">Username</th>
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">Full Name</th>
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">Role</th>
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">Department</th>
+                                <th class="p-4 text-left text-sm font-medium text-gray-300">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr class="border-t border-gray-700 hover:bg-gray-900/50 transition-colors">
+                                <td class="p-4 text-gray-400 text-sm">{{ user.id }}</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center 
+                                            {% if user.role == 'admin' %}bg-purple-900/30 text-purple-300
+                                            {% elif user.role == 'teacher' %}bg-blue-900/30 text-blue-300
+                                            {% else %}bg-green-900/30 text-green-300{% endif %}">
+                                            <i class="fas 
+                                                {% if user.role == 'admin' %}fa-crown
+                                                {% elif user.role == 'teacher' %}fa-chalkboard-teacher
+                                                {% else %}fa-user-graduate{% endif %} text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-white">{{ user.username }}</div>
+                                            {% if user.email %}
+                                            <div class="text-xs text-gray-500">{{ user.email }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-gray-300">{{ user.full_name or '—' }}</td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-medium 
+                                        {% if user.role == 'admin' %}bg-purple-900/30 text-purple-300
+                                        {% elif user.role == 'teacher' %}bg-blue-900/30 text-blue-300
+                                        {% else %}bg-green-900/30 text-green-300{% endif %}">
+                                        {{ user.role|title }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-gray-300">{{ user.department or '—' }}</td>
+                                <td class="p-4">
+                                    {% if user.id != session.user_id %}
+                                    <form action="{{ url_for('delete_user', user_id=user.id) }}" 
+                                          method="POST" 
+                                          onsubmit="return confirm('Delete user \"{{ user.username }}\"? This action cannot be undone.');"
+                                          class="inline">
+                                        <button type="submit" 
+                                                class="px-3 py-1.5 bg-danger-600 hover:bg-danger-700 text-white text-xs font-medium rounded-lg transition-colors">
+                                            <i class="fas fa-trash mr-1"></i>Delete
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs font-medium rounded-lg">
+                                        <i class="fas fa-user mr-1"></i>Current User
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <!-- Empty State -->
+                    <div class="text-center py-12">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-700 mb-4">
+                            <i class="fas fa-users text-gray-500 text-2xl"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-white mb-2">No Users Found</h3>
+                        <p class="text-gray-400 mb-6">Add users to manage the system.</p>
+                        <button onclick="showAddUserModal()"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                            <i class="fas fa-user-plus"></i> Add First User
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Add User Form -->
+        <div>
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6">
+                <h2 class="text-lg font-semibold text-white mb-4">Add New User</h2>
+                
+                <form method="POST" action="{{ url_for('add_user') }}" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Username *</label>
+                        <input type="text" name="username" required
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               placeholder="Enter username">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Password *</label>
+                        <div class="relative">
+                            <input type="password" name="password" required id="userPassword"
+                                   class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent pr-10"
+                                   placeholder="Enter password">
+                            <button type="button" onclick="togglePassword('userPassword')"
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                                <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Full Name</label>
+                        <input type="text" name="full_name"
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               placeholder="Enter full name">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email"
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               placeholder="Enter email address">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Role *</label>
+                        <select name="role" required 
+                                class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                       focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <option value="">Select Role</option>
+                            <option value="admin">Administrator</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Department</label>
+                        <input type="text" name="department"
+                               class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white
+                                      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               placeholder="Enter department">
+                    </div>
+                    
+                    <button type="submit" 
+                            class="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200">
+                        <i class="fas fa-user-plus mr-2"></i>Add User
+                    </button>
+                </form>
+            </div>
+
+            <!-- Role Information -->
+            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 mt-6">
+                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                    <i class="fas fa-info-circle mr-2"></i>Role Information
+                </h3>
+                
+                <div class="space-y-4">
+                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-purple-900/30 flex items-center justify-center">
+                                <i class="fas fa-crown text-purple-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-white">Administrator</h4>
+                                <p class="text-xs text-gray-400">Full system access</p>
+                            </div>
+                        </div>
+                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
+                            <li>• Manage all users</li>
+                            <li>• Create/edit/delete subjects</li>
+                            <li>• Full student management</li>
+                            <li>• Generate face encodings</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center">
+                                <i class="fas fa-chalkboard-teacher text-blue-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-white">Teacher</h4>
+                                <p class="text-xs text-gray-400">Class management access</p>
+                            </div>
+                        </div>
+                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
+                            <li>• Take attendance</li>
+                            <li>• View student attendance</li>
+                            <li>• Create sessions</li>
+                            <li>• Limited student management</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
+                                <i class="fas fa-user-graduate text-green-400"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-white">Student</h4>
+                                <p class="text-xs text-gray-400">View-only access</p>
+                            </div>
+                        </div>
+                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
+                            <li>• View own attendance</li>
+                            <li>• View session schedules</li>
+                            <li>• No administrative access</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePassword(inputId) {
+    const passwordInput = document.getElementById(inputId);
+    const toggleIcon = document.getElementById('passwordToggleIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+
+function showAddUserModal() {
+    // Scroll to the add user form
+    document.querySelector('form[action="{{ url_for("add_user") }}"]').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+    
+    // Highlight the form
+    const form = document.querySelector('form[action="{{ url_for("add_user") }}"]');
+    form.classList.add('ring-2', 'ring-primary-500');
+    setTimeout(() => {
+        form.classList.remove('ring-2', 'ring-primary-500');
+    }, 2000);
+}
+
+// Form validation
+document.querySelector('form[action="{{ url_for("add_user") }}"]').addEventListener('submit', function(e) {
+    const username = this.querySelector('input[name="username"]').value.trim();
+    const password = this.querySelector('input[name="password"]').value;
+    const role = this.querySelector('select[name="role"]').value;
+    
+    if (!username || !password || !role) {
+        e.preventDefault();
+        toast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    if (password.length < 6) {
+        e.preventDefault();
+        toast('Password must be at least 6 characters long', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding User...';
+});
+</script>
+{% endblock %}
