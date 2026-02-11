@@ -435,5 +435,3 @@ For issues and questions:
 - Review logs in `logs/app.log`
 
 ---
-
-**Made with ❤️ for automated attendance tracking**
