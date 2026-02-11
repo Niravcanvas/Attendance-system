@@ -33,24 +33,24 @@ if __name__ == '__main__':
     
     # Print startup info
     print("\n" + "="*60)
-    print("🎓 AI Attendance System")
+    print("AI Attendance System")
     print("="*60)
-    print(f"📁 Database: {app.config['DATABASE_PATH']}")
-    print(f"📁 Dataset: {app.config['DATASET_DIR']}")
-    print(f"📁 Encodings: {app.config['ENCODINGS_DIR']}")
+    print(f"Database: {app.config['DATABASE_PATH']}")
+    print(f"Dataset: {app.config['DATASET_DIR']}")
+    print(f"Encodings: {app.config['ENCODINGS_DIR']}")
     print("="*60)
-    print("👤 Default Credentials:")
+    print("Default Credentials:")
     print("   Admin: admin / admin123")
     print("   Teacher: teacher1 / teacher123")
     print("   Student: student1 / student123")
     print("="*60)
-    print(f"🚀 Server starting on http://0.0.0.0:5000")
-    print("   Environment: " + config_name)
+    print("Server starting on http://0.0.0.0:4000")
+    print("Environment: " + config_name)
     print("="*60 + "\n")
     
     # Run the app
     app.run(
         debug=app.config['DEBUG'],
         host='0.0.0.0',
-        port=5000
+        port=4000
     )
