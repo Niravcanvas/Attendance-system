@@ -143,7 +143,7 @@
                     <span class="status-indicator inactive"></span>
                     <span class="text-sm font-medium text-gray-300">Camera Offline</span>
                 </div>
-                <button onclick="window.location.href='{{ url_for('index') }}'"
+                <button onclick="window.location.href='{{ url_for('dashboard.index') }}'"
                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
                 </button>
@@ -399,7 +399,7 @@
                 </h3>
                 
                 <div class="space-y-3">
-                    <button onclick="window.location.href='{{ url_for('students') }}'"
+                    <button onclick="window.location.href='{{ url_for('students.students') }}'"
                             class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between">
                         <div class="flex items-center">
                             <div class="w-10 h-10 rounded-lg bg-primary-900/30 flex items-center justify-center mr-3">
@@ -421,7 +421,7 @@
                         <i class="fas fa-chevron-right text-gray-500"></i>
                     </button>
                     
-                    <button onclick="window.location.href='{{ url_for('attendance') }}'"
+                    <button onclick="window.location.href='{{ url_for('attendance.attendance') }}'"
                             class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-between">
                         <div class="flex items-center">
                             <div class="w-10 h-10 rounded-lg bg-success-900/30 flex items-center justify-center mr-3">
@@ -440,6 +440,7 @@
 <!-- Canvas (hidden) -->
 <canvas id="canvas" class="hidden"></canvas>
 
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script>
 // Global variables
 let cameraManager = null;
@@ -476,7 +477,6 @@ async function loadRecentCaptures() {
     }
 }
 
-// Display recent captures
 // Display recent captures
 function displayRecentCaptures() {
     const container = document.getElementById('recentCaptures');
@@ -552,7 +552,6 @@ function displayRecentCaptures() {
     });
 }
 
-// View capture
 // View capture
 function viewCapture(capture) {
     // Create modal to view capture
@@ -706,7 +705,6 @@ async function deleteAndClose(filename) {
     }
 }
 
-// Delete capture
 // Delete capture
 async function deleteCapture(filename) {
     if (!confirm('Are you sure you want to delete this capture?')) return;

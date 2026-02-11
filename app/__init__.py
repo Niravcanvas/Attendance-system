@@ -35,18 +35,22 @@ def create_app(config_name='default'):
     # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.dashboard import dashboard_bp
+    from app.routes.capture import capture_bp  # IMPORTANT: This line must be here
     from app.routes.students import students_bp
     from app.routes.subjects import subjects_bp
     from app.routes.sessions import sessions_bp
     from app.routes.attendance import attendance_bp
+    from app.routes.users import users_bp
     from app.routes.api import api_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(capture_bp)  # IMPORTANT: This line must be here
     app.register_blueprint(students_bp, url_prefix='/students')
     app.register_blueprint(subjects_bp, url_prefix='/subjects')
     app.register_blueprint(sessions_bp, url_prefix='/sessions')
     app.register_blueprint(attendance_bp, url_prefix='/attendance')
+    app.register_blueprint(users_bp, url_prefix='/users')
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Register error handlers
