@@ -1,6 +1,9 @@
 # app.py — AI Attendance System (MongoDB / PyMongo edition)
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import io
 import csv
 import json
@@ -35,7 +38,7 @@ import cv2
 from PIL import Image, ImageOps
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    send_file, flash, jsonify, Response, session, send_from_directory
+    flash, jsonify, Response, session, send_from_directory
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -57,6 +60,8 @@ for _d in [DATASET_DIR, ENCODINGS_DIR, UPLOADS_DIR, FACES_DIR, THUMB_DIR, LOGS_D
 INDEX_FILE    = ENCODINGS_DIR / "index.json"
 TIMELINE_FILE = BASE_DIR / "timeline.json"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "PNG", "JPG", "JPEG"}
+
+RECOGNITION_THRESHOLD = float(os.environ.get("RECOGNITION_THRESHOLD", 0.5))
 
 # ==================== INSIGHTFACE ====================
 try:
@@ -88,8 +93,6 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 app.config["UPLOAD_FOLDER"]      = str(UPLOADS_DIR)
-
-RECOGNITION_THRESHOLD = 0.5
 
 @app.template_filter("js_escape")
 def js_escape_filter(value):
@@ -131,6 +134,16 @@ def save_file_copy(file_storage, dest_path):
     except Exception:
         pass
     file_storage.save(str(dest_path))
+
+
+def fmt_created_at(doc):
+    """Return a safe created_at string from a MongoDB document."""
+    val = doc.get("created_at")
+    if isinstance(val, datetime):
+        return val.strftime("%Y-%m-%d")
+    if isinstance(val, str) and len(val) >= 10:
+        return val[:10]
+    return "N/A"
 
 
 def append_to_timeline(photo_name, marked_count, total_faces, subject="", teacher=""):
@@ -205,10 +218,10 @@ def detect_faces(image_array):
             image_array = cv2.cvtColor(image_array, cv2.COLOR_RGBA2RGB)
         faces = insightface_app.get(image_array)
         return [{
-            "bbox":       face.bbox.astype(int).tolist(),
-            "landmarks":  face.kps.tolist() if hasattr(face, "kps") and len(face.kps) else [],
-            "det_score":  float(face.det_score),
-            "embedding":  face.normed_embedding.tolist() if hasattr(face, "normed_embedding") else None,
+            "bbox":      face.bbox.astype(int).tolist(),
+            "landmarks": face.kps.tolist() if hasattr(face, "kps") and len(face.kps) else [],
+            "det_score": float(face.det_score),
+            "embedding": face.normed_embedding.tolist() if hasattr(face, "normed_embedding") else None,
         } for face in faces]
     except Exception as e:
         print(f"detect_faces error: {e}")
@@ -281,9 +294,9 @@ def recognize_face_in_image(image_path, threshold=RECOGNITION_THRESHOLD):
     if not faces:
         return {"success": False, "error": "No faces detected"}
 
-    annotated     = img_bgr.copy()
-    recognitions  = []
-    marked_count  = 0
+    annotated    = img_bgr.copy()
+    recognitions = []
+    marked_count = 0
 
     for face in faces:
         bbox = face["bbox"]
@@ -308,21 +321,21 @@ def recognize_face_in_image(image_path, threshold=RECOGNITION_THRESHOLD):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         recognitions.append({"name": name, "confidence": confidence, "bbox": bbox})
 
-    ts               = datetime.now().strftime("%Y%m%d_%H%M%S")
-    clean_name       = image_path.stem.lstrip("annotated_")
-    ann_filename     = f"annotated_{clean_name}_{ts}.jpg"
-    ann_path         = UPLOADS_DIR / ann_filename
+    ts           = datetime.now().strftime("%Y%m%d_%H%M%S")
+    clean_name   = image_path.stem.lstrip("annotated_")
+    ann_filename = f"annotated_{clean_name}_{ts}.jpg"
+    ann_path     = UPLOADS_DIR / ann_filename
     cv2.imwrite(str(ann_path), annotated)
     save_thumbnail(ann_path)
 
     _, buf = cv2.imencode(".jpg", annotated)
     return {
-        "success":          True,
-        "faces_found":      len(faces),
-        "recognized":       marked_count,
-        "recognitions":     recognitions,
-        "annotated_image":  f"data:image/jpeg;base64,{base64.b64encode(buf).decode()}",
-        "annotated_path":   str(ann_path),
+        "success":            True,
+        "faces_found":        len(faces),
+        "recognized":         marked_count,
+        "recognitions":       recognitions,
+        "annotated_image":    f"data:image/jpeg;base64,{base64.b64encode(buf).decode()}",
+        "annotated_path":     str(ann_path),
         "annotated_filename": ann_filename,
     }
 
@@ -340,7 +353,6 @@ def cleanup_old_annotated_files(max_files=20):
 
 
 def update_student_statistics():
-    """Refresh face_count and attendance_count on each student document."""
     db = get_db()
     if INDEX_FILE.exists():
         with open(INDEX_FILE) as f:
@@ -354,7 +366,6 @@ def update_student_statistics():
                     {"_id": oid(sid_str)},
                     {"$set": {"face_count": face_count}}
                 )
-    # attendance_count = number of 'present' records
     for student in db.students.find():
         present = db.attendance.count_documents({"student_id": student["_id"], "status": "present"})
         db.students.update_one({"_id": student["_id"]}, {"$set": {"attendance_count": present}})
@@ -493,23 +504,16 @@ def index():
     db    = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # Stats
-    total_students  = db.students.count_documents({})
     today_session_ids = [s["_id"] for s in db.sessions.find({"date": today})]
-    today_sessions  = len(today_session_ids)
-    today_attendance = db.attendance.count_documents({
-        "session_id": {"$in": today_session_ids}, "status": "present"
-    }) if today_session_ids else 0
-    total_attendance = db.attendance.count_documents({"status": "present"})
-
     stats = {
-        "total_students":  total_students,
-        "today_sessions":  today_sessions,
-        "today_attendance": today_attendance,
-        "total_attendance": total_attendance,
+        "total_students":   db.students.count_documents({}),
+        "today_sessions":   len(today_session_ids),
+        "today_attendance": db.attendance.count_documents(
+            {"session_id": {"$in": today_session_ids}, "status": "present"}
+        ) if today_session_ids else 0,
+        "total_attendance": db.attendance.count_documents({"status": "present"}),
     }
 
-    # Top students by attendance %
     top_students = []
     for student in db.students.find():
         total = db.attendance.count_documents({"student_id": student["_id"]})
@@ -525,19 +529,18 @@ def index():
         })
     top_students = sorted(top_students, key=lambda x: x["percentage"], reverse=True)[:5]
 
-    # Recent sessions
     recent_sessions = []
     for s in db.sessions.find().sort("date", -1).limit(5):
         subject = db.subjects.find_one({"_id": s["subject_id"]}) or {}
         teacher = db.users.find_one({"_id": s["teacher_id"]}) or {}
         present = db.attendance.count_documents({"session_id": s["_id"], "status": "present"})
         recent_sessions.append({
-            "id":           str(s["_id"]),
-            "date":         s["date"],
-            "start_time":   s["start_time"],
-            "end_time":     s["end_time"],
-            "subject_name": subject.get("subject_name", ""),
-            "teacher_name": teacher.get("full_name", ""),
+            "id":            str(s["_id"]),
+            "date":          s["date"],
+            "start_time":    s["start_time"],
+            "end_time":      s["end_time"],
+            "subject_name":  subject.get("subject_name", ""),
+            "teacher_name":  teacher.get("full_name", ""),
             "present_count": present,
         })
 
@@ -613,7 +616,6 @@ def upload_photo():
 @role_required("admin", "teacher")
 def recognize():
     try:
-        # Resolve image
         if "image" in request.files:
             file = request.files["image"]
             if not (file and allowed_file(file.filename)):
@@ -642,27 +644,25 @@ def recognize():
         if not result.get("success"):
             return jsonify(result), 400
 
-        db    = get_db()
-        today = datetime.now().strftime("%Y-%m-%d")
-        start = datetime.now().strftime("%H:%M")
-        end   = (datetime.now() + timedelta(hours=1)).strftime("%H:%M")
-
+        db          = get_db()
+        today       = datetime.now().strftime("%Y-%m-%d")
+        start       = datetime.now().strftime("%H:%M")
+        end         = (datetime.now() + timedelta(hours=1)).strftime("%H:%M")
         subj_oid    = oid(subject_id)
         teacher_oid = oid(teacher_id)
 
-        existing_session = db.sessions.find_one({
+        existing = db.sessions.find_one({
             "subject_id": subj_oid, "teacher_id": teacher_oid,
             "date": today, "start_time": start, "end_time": end,
         })
-        if existing_session:
-            session_id = existing_session["_id"]
+        if existing:
+            session_id = existing["_id"]
         else:
-            res        = db.sessions.insert_one({
+            session_id = db.sessions.insert_one({
                 "subject_id": subj_oid, "teacher_id": teacher_oid,
                 "date": today, "start_time": start, "end_time": end,
                 "created_at": datetime.now(),
-            })
-            session_id = res.inserted_id
+            }).inserted_id
 
         marked_students = []
         for rec in result["recognitions"]:
@@ -670,27 +670,26 @@ def recognize():
                 continue
             student = db.students.find_one({"name": rec["name"]})
             if not student:
-                res2       = db.students.insert_one({
+                new_id      = db.students.insert_one({
                     "name": rec["name"], "roll_no": None, "department": None,
                     "year": None, "face_count": 0, "attendance_count": 0,
                     "created_at": datetime.now(),
-                })
-                student_id_db = res2.inserted_id
-                student_dir   = DATASET_DIR / str(student_id_db)
+                }).inserted_id
+                student_oid = new_id
+                student_dir = DATASET_DIR / str(new_id)
                 student_dir.mkdir(parents=True, exist_ok=True)
                 (student_dir / "name.txt").write_text(rec["name"], encoding="utf-8")
             else:
-                student_id_db = student["_id"]
+                student_oid = student["_id"]
 
             db.attendance.update_one(
-                {"session_id": session_id, "student_id": student_id_db},
+                {"session_id": session_id, "student_id": student_oid},
                 {"$set": {"status": "present", "confidence": rec["confidence"],
                           "marked_at": datetime.now()}},
                 upsert=True,
             )
             marked_students.append(rec["name"])
 
-        # Mark remaining students absent (only if not already recorded)
         for student in db.students.find():
             db.attendance.update_one(
                 {"session_id": session_id, "student_id": student["_id"]},
@@ -701,7 +700,6 @@ def recognize():
 
         subject = db.subjects.find_one({"_id": subj_oid}) or {}
         teacher = db.users.find_one({"_id": teacher_oid}) or {}
-
         append_to_timeline(latest_photo.name, len(marked_students), result["faces_found"],
                            subject.get("subject_name", ""), teacher.get("full_name", ""))
         update_student_statistics()
@@ -729,7 +727,6 @@ def students():
     if request.method == "POST":
         action = request.form.get("action", "")
 
-        # ── ADD ──────────────────────────────────────────────────────────────
         if action == "add":
             name       = request.form.get("name", "").strip()
             roll_no    = request.form.get("roll_no", "").strip() or None
@@ -752,15 +749,21 @@ def students():
             if roll_no and db.students.find_one({"roll_no": roll_no}):
                 return jsonify({"success": False, "error": "Roll number already exists."}), 400
 
-            student_doc = {"name": name, "roll_no": roll_no, "department": department,
-                           "year": year, "face_count": 0, "attendance_count": 0,
-                           "created_at": datetime.now()}
-            student_id = db.students.insert_one(student_doc).inserted_id
+            student_id = db.students.insert_one({
+                "name": name, "roll_no": roll_no, "department": department,
+                "year": year, "face_count": 0, "attendance_count": 0,
+                "created_at": datetime.now(),
+            }).inserted_id
 
+            # NOTE: student_id is a real ObjectId here — safe to include
             db.users.insert_one({
-                "username": username, "password_hash": generate_password_hash(password),
-                "role": "student", "full_name": name, "department": department,
-                "student_id": student_id, "created_at": datetime.now(),
+                "username":      username,
+                "password_hash": generate_password_hash(password),
+                "role":          "student",
+                "full_name":     name,
+                "department":    department,
+                "student_id":    student_id,
+                "created_at":    datetime.now(),
             })
 
             student_dir = DATASET_DIR / str(student_id)
@@ -777,7 +780,6 @@ def students():
 
             return jsonify({"success": True, "message": f"Student added. Username: {username}"})
 
-        # ── EDIT ─────────────────────────────────────────────────────────────
         elif action == "edit":
             student_id = request.form.get("student_id", "").strip()
             name       = request.form.get("name", "").strip()
@@ -794,7 +796,6 @@ def students():
             sid = oid(student_id)
             if not db.students.find_one({"_id": sid}):
                 return jsonify({"success": False, "error": "Student not found."}), 404
-
             if roll_no and db.students.find_one({"roll_no": roll_no, "_id": {"$ne": sid}}):
                 return jsonify({"success": False, "error": "Roll number already exists."}), 400
 
@@ -817,17 +818,19 @@ def students():
                 if not username or not password:
                     return jsonify({"success": False, "error": "Username and password required."}), 400
                 db.users.insert_one({
-                    "username": username, "password_hash": generate_password_hash(password),
-                    "role": "student", "full_name": name, "department": department,
-                    "student_id": sid, "created_at": datetime.now(),
+                    "username":      username,
+                    "password_hash": generate_password_hash(password),
+                    "role":          "student",
+                    "full_name":     name,
+                    "department":    department,
+                    "student_id":    sid,
+                    "created_at":    datetime.now(),
                 })
 
-            # Update name.txt
             student_dir = DATASET_DIR / str(student_id)
             student_dir.mkdir(parents=True, exist_ok=True)
             (student_dir / "name.txt").write_text(name, encoding="utf-8")
 
-            # Update index.json name
             if INDEX_FILE.exists():
                 with open(INDEX_FILE) as f:
                     index = json.load(f)
@@ -839,7 +842,6 @@ def students():
 
             return jsonify({"success": True, "message": "Student updated."})
 
-        # ── DELETE ────────────────────────────────────────────────────────────
         elif action == "delete":
             student_id = request.form.get("student_id", "").strip()
             if not student_id:
@@ -851,7 +853,6 @@ def students():
                 db.users.delete_one({"student_id": sid})
                 db.attendance.delete_many({"student_id": sid})
                 db.students.delete_one({"_id": sid})
-
                 import shutil
                 student_dir = DATASET_DIR / str(student_id)
                 if student_dir.exists():
@@ -891,8 +892,7 @@ def students():
         student["username"] = user["username"] if user else ""
         students_list.append(student)
 
-    departments = db.students.distinct("department")
-    departments = [d for d in departments if d]
+    departments = [d for d in db.students.distinct("department") if d]
 
     return render_template("students.html",
                            students=students_list,
@@ -913,15 +913,21 @@ def subjects_page():
         if not subject_name:
             flash("Subject name required.", "error")
             return redirect(url_for("subjects_page"))
-        db.subjects.insert_one({"subject_name": subject_name, "department": department, "teacher_id": None})
+        # Do NOT include teacher_id at insert time to avoid sparse index issues
+        db.subjects.insert_one({
+            "subject_name": subject_name,
+            "department":   department,
+            "created_at":   datetime.now(),
+        })
         flash(f'Subject "{subject_name}" added.', "success")
         return redirect(url_for("subjects_page"))
 
     subjects = []
     for s in db.subjects.find().sort("subject_name", 1):
-        teacher = db.users.find_one({"_id": s.get("teacher_id")}) if s.get("teacher_id") else None
+        teacher = db.users.find_one({"_id": s["teacher_id"]}) if s.get("teacher_id") else None
         s["id"]           = str(s["_id"])
         s["teacher_name"] = teacher["full_name"] if teacher else ""
+        s["created_at"]   = fmt_created_at(s)   # ← safe fallback
         subjects.append(s)
 
     teachers = list(db.users.find({"role": "teacher"}).sort("full_name", 1))
@@ -994,10 +1000,16 @@ def add_user():
         flash(f'Username "{username}" already exists.', "error")
         return redirect(url_for("users_page"))
 
+    # NOTE: Do NOT include student_id field for admin/teacher users —
+    # sparse unique index allows missing field but not multiple nulls.
     db.users.insert_one({
-        "username": username, "password_hash": generate_password_hash(password),
-        "role": role, "full_name": full_name, "department": department,
-        "email": email, "student_id": None, "created_at": datetime.now(),
+        "username":      username,
+        "password_hash": generate_password_hash(password),
+        "role":          role,
+        "full_name":     full_name,
+        "department":    department,
+        "email":         email,
+        "created_at":    datetime.now(),
     })
     flash(f'User "{username}" added.', "success")
     return redirect(url_for("users_page"))
@@ -1029,7 +1041,7 @@ def delete_user(user_id):
                 flash(f'Teacher has {session_count} session(s). Use force delete to remove them.', "error")
                 return redirect(url_for("users_page"))
 
-    db.subjects.update_many({"teacher_id": uid}, {"$set": {"teacher_id": None}})
+    db.subjects.update_many({"teacher_id": uid}, {"$unset": {"teacher_id": ""}})
     db.users.delete_one({"_id": uid})
     flash(f'User "{user["username"]}" deleted.', "success")
     return redirect(url_for("users_page"))
@@ -1069,14 +1081,12 @@ def create_session_page():
             flash("A session with these details already exists.", "warning")
             return redirect(url_for("create_session_page"))
 
-        res        = db.sessions.insert_one({
+        session_oid = db.sessions.insert_one({
             "subject_id": subj_oid, "teacher_id": teacher_oid,
             "date": date, "start_time": start_time, "end_time": end_time,
             "created_at": datetime.now(),
-        })
-        session_oid = res.inserted_id
+        }).inserted_id
 
-        # Pre-populate absent records for all students
         for student in db.students.find():
             db.attendance.update_one(
                 {"session_id": session_oid, "student_id": student["_id"]},
@@ -1100,11 +1110,11 @@ def create_session_page():
         teacher = db.users.find_one({"_id": s["teacher_id"]}) or {}
         present = db.attendance.count_documents({"session_id": s["_id"], "status": "present"})
         recent_sessions.append({
-            "id":           str(s["_id"]),
-            "date":         s["date"],
-            "start_time":   s["start_time"],
-            "subject_name": subject.get("subject_name", ""),
-            "teacher_name": teacher.get("full_name", ""),
+            "id":            str(s["_id"]),
+            "date":          s["date"],
+            "start_time":    s["start_time"],
+            "subject_name":  subject.get("subject_name", ""),
+            "teacher_name":  teacher.get("full_name", ""),
             "present_count": present,
         })
 
@@ -1124,7 +1134,7 @@ def reset_session(session_id):
         return redirect(url_for("attendance"))
     db.attendance.update_many({"session_id": sid},
                               {"$set": {"status": "absent", "confidence": None}})
-    flash(f"Session {session_id} attendance reset.", "success")
+    flash(f"Session attendance reset.", "success")
     return redirect(url_for("attendance", session_id=session_id))
 
 
@@ -1158,15 +1168,14 @@ def attendance():
     for doc in subjects + teachers:
         doc["id"] = str(doc["_id"])
 
-    # Build session filter
     session_query = {"date": {"$gte": start_date, "$lte": end_date}}
     if subject_id:
         session_query["subject_id"] = oid(subject_id)
     if teacher_id:
         session_query["teacher_id"] = oid(teacher_id)
 
-    sessions_raw  = list(db.sessions.find(session_query).sort([("date", -1), ("start_time", -1)]))
-    session_oids  = [s["_id"] for s in sessions_raw]
+    sessions_raw = list(db.sessions.find(session_query).sort([("date", -1), ("start_time", -1)]))
+    session_oids = [s["_id"] for s in sessions_raw]
 
     sessions_list = []
     for s in sessions_raw:
@@ -1181,7 +1190,6 @@ def attendance():
             "teacher_name": teacher.get("full_name", ""),
         })
 
-    # Student filter for student-role users
     student_filter = {}
     if session.get("user_role") == "student" and session.get("student_id"):
         student_filter = {"_id": oid(session["student_id"])}
@@ -1190,23 +1198,21 @@ def attendance():
     defaulters         = []
 
     for student in db.students.find(student_filter).sort("name", 1):
-        sid   = student["_id"]
-        att   = list(db.attendance.find({"student_id": sid, "session_id": {"$in": session_oids}}))
-        total = len(att)
+        sid     = student["_id"]
+        att     = list(db.attendance.find({"student_id": sid, "session_id": {"$in": session_oids}}))
+        total   = len(att)
         present = sum(1 for a in att if a["status"] == "present")
         pct     = round(present / total * 100, 1) if total > 0 else 0
 
-        session_att = {str(a["session_id"]): a["status"] for a in att}
-
         row = {
-            "id":               str(sid),
-            "name":             student["name"],
-            "roll_no":          student.get("roll_no"),
-            "department":       student.get("department"),
-            "present_count":    present,
-            "total_sessions":   total,
+            "id":                 str(sid),
+            "name":               student["name"],
+            "roll_no":            student.get("roll_no"),
+            "department":         student.get("department"),
+            "present_count":      present,
+            "total_sessions":     total,
             "attendance_percent": pct,
-            "session_attendance": session_att,
+            "session_attendance": {str(a["session_id"]): a["status"] for a in att},
         }
         attendance_summary.append(row)
         if pct < 75 and total >= 3:
@@ -1218,11 +1224,11 @@ def attendance():
         teacher = db.users.find_one({"_id": s["teacher_id"]}) or {}
         present = db.attendance.count_documents({"session_id": s["_id"], "status": "present"})
         recent_sessions.append({
-            "id":           str(s["_id"]),
-            "date":         s["date"],
-            "start_time":   s["start_time"],
-            "subject_name": subject.get("subject_name", ""),
-            "teacher_name": teacher.get("full_name", ""),
+            "id":            str(s["_id"]),
+            "date":          s["date"],
+            "start_time":    s["start_time"],
+            "subject_name":  subject.get("subject_name", ""),
+            "teacher_name":  teacher.get("full_name", ""),
             "present_count": present,
         })
 
@@ -1263,7 +1269,7 @@ def mark_attendance_manual(session_id):
     if not student_id:
         return jsonify({"success": False, "error": "Student ID required"}), 400
 
-    sid = oid(session_id)
+    sid  = oid(session_id)
     stid = oid(student_id)
 
     if not db.sessions.find_one({"_id": sid}):
@@ -1291,15 +1297,20 @@ def download_attendance_report():
     end_date   = request.args.get("end_date", "")
 
     session_query = {}
-    if subject_id: session_query["subject_id"] = oid(subject_id)
-    if teacher_id: session_query["teacher_id"] = oid(teacher_id)
-    if start_date: session_query["date"] = {"$gte": start_date}
-    if end_date:
-        session_query.setdefault("date", {})["$lte"] = end_date
+    if subject_id:
+        session_query["subject_id"] = oid(subject_id)
+    if teacher_id:
+        session_query["teacher_id"] = oid(teacher_id)
+    if start_date or end_date:
+        session_query["date"] = {}
+        if start_date:
+            session_query["date"]["$gte"] = start_date
+        if end_date:
+            session_query["date"]["$lte"] = end_date
 
-    sessions_raw  = list(db.sessions.find(session_query))
-    session_oids  = [s["_id"] for s in sessions_raw]
-    session_map   = {s["_id"]: s for s in sessions_raw}
+    sessions_raw = list(db.sessions.find(session_query))
+    session_oids = [s["_id"] for s in sessions_raw]
+    session_map  = {s["_id"]: s for s in sessions_raw}
 
     rows = []
     for att in db.attendance.find({"session_id": {"$in": session_oids}}).sort("marked_at", -1):
@@ -1346,6 +1357,17 @@ def download_attendance_report():
                     headers={"Content-Disposition": f"attachment; filename=attendance_{ts}.csv"})
 
 
+# attendance/excel redirects to CSV (template calls this endpoint)
+@app.route("/attendance/excel")
+@login_required
+def download_attendance_excel():
+    return redirect(url_for("download_attendance_report",
+                            subject_id=request.args.get("subject_id", ""),
+                            teacher_id=request.args.get("teacher_id", ""),
+                            start_date=request.args.get("start_date", ""),
+                            end_date=request.args.get("end_date", "")))
+
+
 @app.route("/attendance/defaulters/export")
 @login_required
 def export_defaulters():
@@ -1356,15 +1378,17 @@ def export_defaulters():
     end_date   = request.args.get("end_date",   datetime.now().strftime("%Y-%m-%d"))
 
     session_query = {"date": {"$gte": start_date, "$lte": end_date}}
-    if subject_id: session_query["subject_id"] = oid(subject_id)
-    if teacher_id: session_query["teacher_id"] = oid(teacher_id)
+    if subject_id:
+        session_query["subject_id"] = oid(subject_id)
+    if teacher_id:
+        session_query["teacher_id"] = oid(teacher_id)
 
     session_oids = [s["_id"] for s in db.sessions.find(session_query)]
 
     defaulters = []
     for student in db.students.find():
-        att     = list(db.attendance.find({"student_id": student["_id"], "session_id": {"$in": session_oids}}))
-        total   = len(att)
+        att   = list(db.attendance.find({"student_id": student["_id"], "session_id": {"$in": session_oids}}))
+        total = len(att)
         if total < 3:
             continue
         present = sum(1 for a in att if a["status"] == "present")
@@ -1448,10 +1472,11 @@ def health_check():
 @app.route("/api/students")
 @login_required
 def api_students():
-    db       = get_db()
-    students = [{"id": str(s["_id"]), "name": s["name"], "roll_no": s.get("roll_no")}
-                for s in db.students.find().sort("name", 1)]
-    return jsonify(students)
+    db = get_db()
+    return jsonify([
+        {"id": str(s["_id"]), "name": s["name"], "roll_no": s.get("roll_no")}
+        for s in db.students.find().sort("name", 1)
+    ])
 
 
 @app.route("/api/dashboard_stats")
@@ -1463,9 +1488,24 @@ def dashboard_stats():
     return jsonify({"success": True, "stats": {
         "total_students":   db.students.count_documents({}),
         "today_sessions":   len(today_sids),
-        "today_attendance": db.attendance.count_documents({"session_id": {"$in": today_sids}, "status": "present"}) if today_sids else 0,
+        "today_attendance": db.attendance.count_documents(
+            {"session_id": {"$in": today_sids}, "status": "present"}
+        ) if today_sids else 0,
         "total_attendance": db.attendance.count_documents({"status": "present"}),
     }})
+
+
+@app.route("/api/capture_statistics")
+@login_required
+def capture_statistics():
+    return jsonify({
+        "success":          True,
+        "total_faces":      0,
+        "today_captures":   0,
+        "storage_used":     "0 bytes",
+        "encodings_ready":  INDEX_FILE.exists() and INDEX_FILE.stat().st_size > 0,
+        "recognition_ready": INSIGHTFACE_AVAILABLE and insightface_app is not None,
+    })
 
 
 @app.route("/api/recent_captures")
@@ -1480,17 +1520,15 @@ def recent_captures():
 
         recent = []
         for file in image_files[:12]:
-            stat         = file.stat()
-            thumb_name   = f"thumb_{file.name}"
-            thumb_exists = (THUMB_DIR / thumb_name).exists()
-            if not thumb_exists:
+            stat       = file.stat()
+            thumb_name = f"thumb_{file.name}"
+            if not (THUMB_DIR / thumb_name).exists():
                 save_thumbnail(file)
-
             recent.append({
                 "id":        file.name,
                 "filename":  file.name,
                 "url":       f"/uploads/{file.name}",
-                "thumbnail": f"/uploads/thumbs/{thumb_name}" if thumb_exists else f"/uploads/{file.name}",
+                "thumbnail": f"/uploads/thumbs/{thumb_name}",
                 "timestamp": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
                 "time":      humanize.naturaltime(datetime.fromtimestamp(stat.st_mtime)) if HUMANIZE_AVAILABLE else datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
                 "size":      humanize.naturalsize(stat.st_size) if HUMANIZE_AVAILABLE else f"{stat.st_size} bytes",
@@ -1546,8 +1584,7 @@ def upload_student_faces():
             uploaded += 1
 
     if uploaded:
-        db.students.update_one({"_id": oid(student_id)},
-                               {"$inc": {"face_count": uploaded}})
+        db.students.update_one({"_id": oid(student_id)}, {"$inc": {"face_count": uploaded}})
     return jsonify({"success": True, "message": f"Uploaded {uploaded} images", "uploaded": uploaded})
 
 
@@ -1596,7 +1633,7 @@ if __name__ == "__main__":
     print(f"👨‍🏫 Teacher: teacher1 / teacher123")
     print(f"👨‍🎓 Student: student1 / student123")
     print("=" * 50)
-    print("🚀 http://0.0.0.0:5000")
+    print(f"🚀 http://0.0.0.0:{os.environ.get('PORT', 5001)}")
     print("=" * 50 + "\n")
 
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5001)))

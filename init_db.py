@@ -7,7 +7,10 @@ def init_database():
     db = get_db()
     init_indexes()
 
-    # ── Default users ────────────────────────────────────────────────────────
+    # ── Default users ─────────────────────────────────────────────────────────
+    # NOTE: Do NOT include student_id key when it's None.
+    # MongoDB sparse unique index skips MISSING fields but still indexes null,
+    # so multiple null values would cause a DuplicateKeyError.
     default_users = [
         {
             "username":      "admin",
@@ -16,7 +19,6 @@ def init_database():
             "full_name":     "System Administrator",
             "department":    "Administration",
             "email":         "admin@example.com",
-            "student_id":    None,
         },
         {
             "username":      "teacher1",
@@ -25,7 +27,6 @@ def init_database():
             "full_name":     "John Doe",
             "department":    "Computer Science",
             "email":         "teacher1@example.com",
-            "student_id":    None,
         },
         {
             "username":      "student1",
@@ -34,7 +35,6 @@ def init_database():
             "full_name":     "Alice Smith",
             "department":    "Computer Science",
             "email":         "student1@example.com",
-            "student_id":    None,
         },
     ]
 
@@ -45,7 +45,10 @@ def init_database():
 
     # ── Default subject ───────────────────────────────────────────────────────
     if not db.subjects.find_one({"subject_name": "General"}):
-        db.subjects.insert_one({"subject_name": "General", "department": "General", "teacher_id": None})
+        db.subjects.insert_one({
+            "subject_name": "General",
+            "department":   "General",
+        })
         print("  ✅ Created subject: General")
 
     print("✅ Database initialised")
