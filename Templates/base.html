@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block title %}AI Attendance System{% endblock %}</title>
+    
+    <!-- Google Fonts for Aesthetic Typography - Modern & Attractive -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Poppins for body text, Montserrat for headings -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        secondary: {
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        },
+                        success: {
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        warning: {
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        danger: {
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(14, 165, 233, 0.3), 0 0 10px rgba(14, 165, 233, 0.2)' },
+                            '100%': { boxShadow: '0 0 20px rgba(14, 165, 233, 0.6), 0 0 30px rgba(14, 165, 233, 0.4)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Three.js and Vanta.NET for animated background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+    
+    <!-- Font Awesome Icons - Primary CDN with fallback -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Fallback if primary CDN fails -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.5.1/css/all.css" media="print" onload="this.media='all'">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+    
+    <!-- Custom Styles -->
+    <style>
+        /* Apply aesthetic fonts */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: transparent !important; /* Let Vanta show through */
+            position: relative;
+            min-height: 100vh;
+            font-weight: 400;
+            line-height: 1.6;
+            color: #e2e8f0;
+        }
+        /* Remove the previous grid overlay */
+        body::before {
+            display: none !important;
+        }
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        /* Gradient text with Montserrat */
+        .gradient-text {
+            background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        /* Loading animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        /* Card hover effects */
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Glass effect */
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Neon glow */
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+        }
+        
+        /* Print styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+        }
+        
+        /* Gradient backgrounds */
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Status indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-indicator.active {
+            background-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+        }
+        .status-indicator.inactive {
+            background-color: #ef4444;
+        }
+        .status-indicator.warning {
+            background-color: #f59e0b;
+        }
+        
+        /* Ensure content is above Vanta background */
+        main, header, footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Animated border for active nav items */
+        .nav-active {
+            position: relative;
+            background: linear-gradient(135deg, #0ea5e9, #8b5cf6) !important;
+            color: white !important;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+        }
+
+        /* Floating animation for logo */
+        .logo-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Additional font refinements */
+        .stat-number {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        /* Improved readability */
+        p {
+            font-weight: 300;
+            color: #cbd5e1;
+        }
+        .text-sm {
+            font-weight: 400;
+        }
+        .font-medium {
+            font-weight: 500;
+        }
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        /* Ensure icons have proper display */
+        i, .fas, .far, .fab {
+            display: inline-block;
+            font-style: normal;
+            font-variant: normal;
+            text-rendering: auto;
+            line-height: 1;
+        }
+    </style>
+    
+    <!-- Script to detect missing icons and reload Font Awesome if needed -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test if Font Awesome loaded by checking a known icon
+            var testIcon = document.createElement('i');
+            testIcon.className = 'fas fa-user';
+            document.body.appendChild(testIcon);
+            var isLoaded = window.getComputedStyle(testIcon, ':before').getPropertyValue('content') !== 'none' && 
+                          window.getComputedStyle(testIcon, ':before').getPropertyValue('content') !== '';
+            document.body.removeChild(testIcon);
+            
+            if (!isLoaded) {
+                console.warn('Font Awesome failed to load, loading fallback...');
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css';
+                document.head.appendChild(link);
+            }
+        });
+    </script>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="text-gray-100 min-h-screen flex flex-col">
+    <!-- Vanta.NET background canvas -->
+    <div id="vanta-bg" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;"></div>
+
+    {% if session.user_id %}
+    <!-- Navigation Header with Enhanced Glass -->
+    <header class="sticky top-0 z-50 glass border-b border-dark-700 shadow-2xl backdrop-blur-xl">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="{{ url_for('index') }}" class="flex items-center space-x-3 no-underline group">
+                        <div class="w-10 h-10 rounded-lg gradient-bg flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg neon-glow logo-float">
+                            <i class="fas fa-robot text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold gradient-text">AI Attendance</h1>
+                            <p class="text-xs text-gray-400">
+                                {{ session.full_name }} • {{ session.user_role|title }}
+                                {% if session.department %} • {{ session.department }}{% endif %}
+                            </p>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex items-center space-x-1">
+                    <a href="{{ url_for('index') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'nav-active' if active_page == 'dashboard' else 'text-gray-300 hover:bg-dark-700 hover:text-white hover:scale-105' }}">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    
+                    {% if session.user_role in ['admin', 'teacher'] %}
+                    <a href="{{ url_for('capture_page') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'nav-active' if active_page == 'capture' else 'text-gray-300 hover:bg-dark-700 hover:text-white hover:scale-105' }}">
+                        <i class="fas fa-camera mr-2"></i>Capture
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('attendance') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'nav-active' if active_page == 'attendance' else 'text-gray-300 hover:bg-dark-700 hover:text-white hover:scale-105' }}">
+                        <i class="fas fa-calendar-check mr-2"></i>
+                        {% if session.user_role == 'student' %}My Attendance{% else %}Attendance{% endif %}
+                    </a>
+                    
+                    {% if session.user_role == 'admin' %}
+                    <a href="{{ url_for('students') }}" 
+                       class="px-4 py-2 rounded-lg transition-all duration-200 {{ 'nav-active' if active_page == 'students' else 'text-gray-300 hover:bg-dark-700 hover:text-white hover:scale-105' }}">
+                        <i class="fas fa-users mr-2"></i>Students
+                    </a>
+                    
+                    <div class="relative group">
+                        <button class="px-4 py-2 rounded-lg text-gray-300 hover:bg-dark-700 hover:text-white transition-all duration-200 flex items-center">
+                            <i class="fas fa-cog mr-2"></i>Admin
+                            <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        </button>
+                        <div class="absolute right-0 mt-2 w-48 bg-dark-800/90 backdrop-blur-sm border border-dark-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform -translate-y-2 group-hover:translate-y-0">
+                            <a href="{{ url_for('subjects_page') }}" class="block px-4 py-3 text-gray-300 hover:bg-dark-700 hover:text-white transition-colors border-b border-dark-700">
+                                <i class="fas fa-book mr-2"></i>Subjects
+                            </a>
+                            <a href="{{ url_for('users_page') }}" class="block px-4 py-3 text-gray-300 hover:bg-dark-700 hover:text-white transition-colors">
+                                <i class="fas fa-user-cog mr-2"></i>Users
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </nav>
+
+                <!-- User Menu -->
+                <div class="flex items-center space-x-3">
+                    <span class="hidden sm:inline text-sm text-gray-400">{{ session.username }}</span>
+                    <a href="{{ url_for('logout') }}" 
+                       class="px-4 py-2 bg-dark-700/80 hover:bg-danger-600 text-sm font-medium rounded-lg transition-all duration-200 hover:scale-105 backdrop-blur-sm">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </a>
+                    
+                    <!-- Mobile Menu Button -->
+                    <button id="mobileMenuButton" class="md:hidden text-gray-300 hover:text-white p-2 rounded-lg hover:bg-dark-700">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div id="mobileMenu" class="md:hidden bg-dark-800/90 backdrop-blur-sm border-t border-dark-700 hidden shadow-lg">
+            <div class="container mx-auto px-4 py-3 space-y-1">
+                <a href="{{ url_for('index') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'dashboard' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-home mr-3"></i>Dashboard
+                </a>
+                
+                {% if session.user_role in ['admin', 'teacher'] %}
+                <a href="{{ url_for('capture_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'capture' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-camera mr-3"></i>Capture
+                </a>
+                {% endif %}
+                
+                <a href="{{ url_for('attendance') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'attendance' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-calendar-check mr-3"></i>
+                    {% if session.user_role == 'student' %}My Attendance{% else %}Attendance{% endif %}
+                </a>
+                
+                {% if session.user_role == 'admin' %}
+                <a href="{{ url_for('students') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'students' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-users mr-3"></i>Students
+                </a>
+                <a href="{{ url_for('subjects_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'subjects' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-book mr-3"></i>Subjects
+                </a>
+                <a href="{{ url_for('users_page') }}" 
+                   class="block px-4 py-2 rounded-lg {{ 'bg-primary-600 text-white' if active_page == 'users' else 'text-gray-300 hover:bg-dark-700 hover:text-white' }}">
+                    <i class="fas fa-user-cog mr-3"></i>Users
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6 space-y-3">
+                    {% for category, message in messages %}
+                        <div class="px-4 py-3 rounded-lg border shadow-lg backdrop-blur-sm
+                            {% if category == 'success' %}bg-success-900/30 border-success-700 text-success-300
+                            {% elif category == 'error' %}bg-danger-900/30 border-danger-700 text-danger-300
+                            {% elif category == 'warning' %}bg-warning-900/30 border-warning-700 text-warning-300
+                            {% else %}bg-primary-900/30 border-primary-700 text-primary-300{% endif %}">
+                            <div class="flex items-center">
+                                <i class="fas 
+                                    {% if category == 'success' %}fa-check-circle
+                                    {% elif category == 'error' %}fa-exclamation-circle
+                                    {% elif category == 'warning' %}fa-exclamation-triangle
+                                    {% else %}fa-info-circle{% endif %}
+                                    mr-3 text-lg"></i>
+                                <span>{{ message }}</span>
+                                <button class="ml-auto text-gray-400 hover:text-white" onclick="this.parentElement.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% if session.user_id %}
+    <footer class="glass border-t border-dark-700 py-4 mt-8 backdrop-blur-xl">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-sm text-gray-500 mb-2 md:mb-0">
+                    <i class="fas fa-robot mr-2"></i>AI Attendance System <span class="gradient-text">v1.0</span>
+                </div>
+                <div class="text-xs text-gray-600 flex items-center space-x-4">
+                    <span>Logged in as {{ session.full_name }} ({{ session.user_role|title }})</span>
+                    {% if session.department %}
+                    <span class="hidden sm:inline">• {{ session.department }}</span>
+                    {% endif %}
+                    <span>• {{ now.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-3 w-80"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-dark-800 rounded-xl p-8 shadow-2xl text-center border border-primary-500/30">
+            <div class="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-white text-lg font-medium" id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript (keep all original helpers) -->
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobileMenuButton')?.addEventListener('click', function() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('mobileMenu');
+            const button = document.getElementById('mobileMenuButton');
+            
+            if (menu && button && !menu.contains(event.target) && !button.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        // Global helper functions (toast, setLoading, showLoading, hideLoading, etc.)
+        window.dataURLtoBlob = function(dataURL) {
+            const arr = dataURL.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        };
+
+        window.setLoading = function(element, isLoading, loadingText = 'Processing...') {
+            if (!element) return;
+            if (isLoading) {
+                element.disabled = true;
+                const originalText = element.innerHTML;
+                element.setAttribute('data-original-text', originalText);
+                element.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
+            } else {
+                element.disabled = false;
+                const originalText = element.getAttribute('data-original-text');
+                if (originalText) {
+                    element.innerHTML = originalText;
+                }
+            }
+        };
+
+        // Toast notification system
+        window.toast = function(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast px-4 py-3 rounded-lg backdrop-blur-sm border-l-4 transform transition-all duration-300 translate-x-full opacity-0 ${getToastClass(type)}`;
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <i class="${getToastIcon(type)} mr-3 text-lg"></i>
+                    <div class="flex-1 text-sm">${message}</div>
+                    <button class="ml-3 text-gray-300 hover:text-white transition-colors" 
+                            onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+                toast.classList.add('translate-x-0', 'opacity-100');
+            });
+
+            // Auto remove
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-0', 'opacity-100');
+                    toast.classList.add('translate-x-full', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }, duration);
+            }
+
+            return toast;
+        };
+
+        function getToastClass(type) {
+            switch(type) {
+                case 'success': return 'bg-success-900/30 border-success-500';
+                case 'error': return 'bg-danger-900/30 border-danger-500';
+                case 'warning': return 'bg-warning-900/30 border-warning-500';
+                default: return 'bg-primary-900/30 border-primary-500';
+            }
+        }
+
+        function getToastIcon(type) {
+            switch(type) {
+                case 'success': return 'fas fa-check-circle';
+                case 'error': return 'fas fa-exclamation-circle';
+                case 'warning': return 'fas fa-exclamation-triangle';
+                default: return 'fas fa-info-circle';
+            }
+        }
+
+        // Loading overlay
+        window.showLoading = function(message = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const text = document.getElementById('loadingText');
+            if (overlay && text) {
+                text.textContent = message;
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        window.hideLoading = function() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+        };
+
+        // Global AJAX error handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                return originalFetch.apply(this, args)
+                    .then(response => {
+                        if (!response.ok && response.status === 401) {
+                            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                            throw new Error('Unauthorized');
+                        }
+                        if (!response.ok && response.status === 403) {
+                            toast('You do not have permission to perform this action', 'error');
+                            throw new Error('Forbidden');
+                        }
+                        return response;
+                    })
+                    .catch(error => {
+                        if (error.message !== 'Unauthorized' && error.message !== 'Forbidden') {
+                            console.error('Fetch error:', error);
+                            toast('An error occurred. Please try again.', 'error');
+                        }
+                        throw error;
+                    });
+            };
+        });
+
+        // Confirm before dangerous actions
+        window.confirmAction = function(message, callback) {
+            if (confirm(message)) {
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            }
+        };
+
+        // Copy to clipboard
+        window.copyToClipboard = function(text, successMessage = 'Copied to clipboard!') {
+            navigator.clipboard.writeText(text)
+                .then(() => toast(successMessage, 'success'))
+                .catch(err => {
+                    console.error('Failed to copy:', err);
+                    toast('Failed to copy', 'error');
+                });
+        };
+
+        // Format date
+        window.formatDate = function(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        };
+    </script>
+
+    <!-- Vanta.NET initialization -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        VANTA.NET({
+            el: "#vanta-bg",
+            mouseControls: true,
+            touchControls: true,
+            gyroControls: false,
+            minHeight: 200.00,
+            minWidth: 200.00,
+            scale: 1.00,
+            scaleMobile: 1.00,
+            color: 0x4ffcf9,          // light cyan
+            backgroundColor: 0x15273c,  // dark blue background
+            spacing: 16.00
+        });
+    });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

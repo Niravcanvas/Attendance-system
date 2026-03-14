@@ -1,0 +1,24 @@
+# Core framework
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# MongoDB
+pymongo>=4.6.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Face recognition
+insightface>=0.7.3
+onnxruntime>=1.16.0
+
+# Image processing
+numpy>=1.24.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Excel export (optional but recommended)
+openpyxl>=3.1.0
+
+# Human-readable sizes/times in UI (optional)
+humanize>=4.6.0

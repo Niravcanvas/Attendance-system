@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database (contains student data — do not commit)
+*.db
+*.sqlite
+*.sqlite3
+
+# Face data (large binary files — store separately)
+dataset/
+encodings/*.npy
+
+# Keep the index and subjects files (they're small JSON metadata)
+!encodings/index.json
+!encodings/subjects.json
+!encodings/teachers.json
+
+# Uploaded and generated images
+uploads/
+logs/
+
+# Backups
+backups/
+
+# Unused/legacy files
+attendance.csv
+timeline.json
+
+# Environment variables
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
