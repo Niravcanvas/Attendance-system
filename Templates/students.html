@@ -1,908 +1,1024 @@
 {% extends "base.html" %}
 {% set active_page = 'students' %}
-{% block title %}Students • AI Attendance{% endblock %}
+{% block title %}Students • Attendix{% endblock %}
 
 {% block head %}
 <style>
-    .student-card {
-        transition: all 0.3s ease;
-        background: rgba(30, 41, 59, 0.5);
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .student-card:hover {
-        transform: translateY(-5px) scale(1.02);
-        border-color: rgba(14, 165, 233, 0.3);
-        box-shadow: 0 20px 30px -10px rgba(14, 165, 233, 0.2);
-    }
-    .face-count-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-        color: white;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0 4px;
-    }
-    .upload-dropzone {
-        border: 2px dashed #475569;
-        border-radius: 0.75rem;
-        transition: all 0.3s ease;
-        background: rgba(30, 41, 59, 0.5);
-        backdrop-filter: blur(5px);
-    }
-    .upload-dropzone.drag-over {
-        border-color: #0ea5e9;
-        background: rgba(14, 165, 233, 0.1);
-        transform: scale(1.02);
-    }
-    .image-preview {
-        position: relative;
-        border-radius: 0.5rem;
-        overflow: hidden;
-        aspect-ratio: 1;
-        border: 2px solid transparent;
-        transition: all 0.3s;
-    }
-    .image-preview:hover {
-        border-color: #0ea5e9;
-        transform: scale(1.05);
-    }
-    .dropdown-menu {
-        background: rgba(31, 41, 55, 0.9);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .modal-overlay {
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(4px);
-    }
-    .gradient-avatar {
-        background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
-    }
+  /* ─── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .students-header {
-        background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(139,92,246,0.1)),
-                    radial-gradient(circle at 30% 30%, #0f172a, #1e293b);
-        position: relative;
-        overflow: hidden;
-    }
-    .students-header::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' stroke='%230ea5e9' stroke-width='0.5' stroke-opacity='0.1'%3E%3Cpath d='M0 0h60v60H0z'/%3E%3C/g%3E%3C/svg%3E");
-        pointer-events: none;
-    }
+  /* ─── Design Tokens ─────────────────────────────────────────── */
+  :root {
+    --abyss:        #001b2e;
+    --slate:        #1d3f58;
+    --steel:        #537692;
+    --haze:         #b3cde4;
+    --frost:        #eef3f9;
+    --emerald:      #2dd4bf;
+    --alert:        #f87171;
+    --amber:        #fbbf24;
+    --lilac:        #a78bfa;
+    --glass-bg:     rgba(179,205,228,.06);
+    --glass-border: rgba(179,205,228,.14);
+    --glass-hover:  rgba(179,205,228,.10);
+    --font-sans:    'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-mono:    'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--abyss);
+    color: var(--haze);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Background Orbs ───────────────────────────────────────── */
+  .orb {
+    position: fixed; border-radius: 50%;
+    pointer-events: none; z-index: 0; filter: blur(90px);
+  }
+  .orb-1 { width:700px; height:700px; background:radial-gradient(circle,rgba(29,63,88,.7),transparent 70%); top:-250px; left:-150px; }
+  .orb-2 { width:500px; height:500px; background:radial-gradient(circle,rgba(83,118,146,.4),transparent 70%); top:50%; right:-200px; }
+  .orb-3 { width:450px; height:450px; background:radial-gradient(circle,rgba(29,63,88,.5),transparent 70%); bottom:-100px; left:25%; }
+
+  /* ─── Page Wrapper ──────────────────────────────────────────── */
+  .page-content { position:relative; z-index:1; padding:0 52px 80px; }
+
+  /* ─── Glass L2 ──────────────────────────────────────────────── */
+  .glass-l2 {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+  }
+
+  /* ─── Page Header ───────────────────────────────────────────── */
+  .page-header {
+    padding: 32px 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 32px;
+  }
+  .page-header-left { display:flex; flex-direction:column; gap:4px; }
+  .section-eyebrow {
+    font-family: var(--font-mono); font-size:10px; font-weight:500;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--steel); opacity:.55; margin-bottom:4px;
+  }
+  .page-title {
+    font-size:26px; font-weight:600; letter-spacing:-0.02em; color:var(--frost);
+    display:flex; align-items:center; gap:12px;
+  }
+  .page-title svg { color:var(--haze); opacity:.65; }
+  .page-subtitle { font-size:15px; font-weight:300; color:var(--steel); line-height:1.75; margin-top:4px; }
+  .header-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+  /* ─── Count Badge ───────────────────────────────────────────── */
+  .count-badge {
+    display: inline-flex; align-items:center; gap:8px;
+    padding: 7px 14px; border-radius:8px;
+    background: var(--glass-bg); border:1px solid var(--glass-border);
+    font-family:var(--font-mono); font-size:12px; font-weight:500; color:var(--steel);
+  }
+
+  /* ─── Buttons ───────────────────────────────────────────────── */
+  .btn {
+    display:inline-flex; align-items:center; gap:8px; padding:10px 16px;
+    border-radius:8px; font-family:var(--font-sans); font-size:13px; font-weight:500;
+    cursor:pointer; border:none; transition:opacity .15s,transform .1s; white-space:nowrap;
+  }
+  .btn:hover { opacity:.88; transform:translateY(-1px); }
+  .btn:active { transform:translateY(0); }
+  .btn svg { flex-shrink:0; }
+  .btn-primary { background:linear-gradient(135deg,var(--haze),var(--frost)); color:var(--abyss); }
+  .btn-secondary { background:var(--glass-bg); color:var(--haze); border:1px solid var(--glass-border); }
+  .btn-secondary:hover { background:var(--glass-hover); }
+  .btn-ghost { background:transparent; color:var(--steel); border:1px solid rgba(83,118,146,.24); }
+  .btn-ghost:hover { color:var(--haze); background:var(--glass-bg); }
+  .btn-danger-ghost { background:rgba(248,113,113,.08); color:var(--alert); border:1px solid rgba(248,113,113,.18); }
+  .btn-danger-ghost:hover { background:rgba(248,113,113,.14); opacity:1; }
+  .btn-sm { padding:7px 12px; font-size:12px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; transform:none !important; }
+
+  /* ─── Filter Bar ─────────────────────────────────────────────── */
+  .filter-bar { padding:20px 24px; margin-bottom:24px; }
+  .filter-grid {
+    display:grid; grid-template-columns:1fr 1fr 200px auto; gap:16px; align-items:end;
+  }
+  @media(max-width:900px){ .filter-grid { grid-template-columns:1fr 1fr; } }
+  @media(max-width:600px){ .filter-grid { grid-template-columns:1fr; } }
+
+  .form-label {
+    display:block; font-family:var(--font-mono); font-size:11px; font-weight:500;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--steel); margin-bottom:8px;
+  }
+  .form-input, .form-select {
+    width:100%; background:var(--glass-bg); border:1px solid var(--glass-border);
+    border-radius:8px; padding:10px 12px; font-family:var(--font-sans); font-size:14px;
+    font-weight:300; color:var(--haze); outline:none; transition:border-color .15s;
+    appearance:none; -webkit-appearance:none;
+  }
+  .form-input::placeholder { color:rgba(83,118,146,.45); }
+  .form-input:focus, .form-select:focus {
+    border-color:rgba(179,205,228,.38); background:rgba(179,205,228,.08);
+  }
+  .form-select option { background:var(--slate); color:var(--haze); }
+
+  .search-wrap { position:relative; }
+  .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--steel); pointer-events:none; }
+  .search-wrap .form-input { padding-left:38px; }
+
+  /* ─── Students Grid ─────────────────────────────────────────── */
+  .students-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(268px,1fr));
+    gap:20px;
+  }
+
+  /* ─── Student Card ──────────────────────────────────────────── */
+  .student-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex; flex-direction: column;
+    transition: border-color .2s, transform .15s, box-shadow .2s;
+  }
+  .student-card:hover {
+    border-color: rgba(179,205,228,.28);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 48px rgba(0,0,0,.3);
+  }
+
+  /* Avatar */
+  .student-avatar {
+    width:44px; height:44px; border-radius:50%;
+    background: linear-gradient(135deg, var(--steel), var(--haze));
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:700; color:var(--abyss);
+    flex-shrink:0;
+  }
+
+  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:16px; }
+  .card-identity { display:flex; align-items:center; gap:12px; }
+
+  .student-name { font-size:15px; font-weight:500; color:var(--frost); }
+
+  .card-tags { display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap; }
+
+  .roll-tag {
+    font-family:var(--font-mono); font-size:10px; font-weight:500;
+    padding:2px 7px; border-radius:4px; letter-spacing:.05em;
+    background:rgba(83,118,146,.14); border:1px solid rgba(83,118,146,.22); color:var(--steel);
+  }
+
+  .face-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    font-family:var(--font-mono); font-size:10px; font-weight:600;
+    padding:2px 7px; border-radius:100px;
+    background:rgba(83,118,146,.12); border:1px solid rgba(83,118,146,.20); color:var(--steel);
+  }
+
+  /* Kebab */
+  .kebab-wrap { position:relative; }
+  .kebab-btn {
+    width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+    border-radius:6px; background:transparent; border:1px solid transparent;
+    color:var(--steel); cursor:pointer; flex-shrink:0;
+    transition:background .15s, color .15s;
+  }
+  .kebab-btn:hover { background:var(--glass-hover); border-color:var(--glass-border); color:var(--haze); }
+
+  .dropdown-menu {
+    position:absolute; top:calc(100% + 6px); right:0; width:178px;
+    background:rgba(8,24,40,.94); backdrop-filter:blur(16px);
+    border:1px solid var(--glass-border); border-radius:10px;
+    box-shadow:0 16px 48px rgba(0,0,0,.5); z-index:30;
+    opacity:0; transform:scale(.95) translateY(-4px); pointer-events:none;
+    transition:opacity .15s, transform .15s;
+  }
+  .dropdown-menu.open { opacity:1; transform:scale(1) translateY(0); pointer-events:auto; }
+
+  .dropdown-item {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    font-size:13px; font-weight:400; color:var(--haze); cursor:pointer;
+    border:none; background:transparent; width:100%; text-align:left; transition:background .12s;
+  }
+  .dropdown-item:hover { background:var(--glass-hover); }
+  .dropdown-item.danger { color:var(--alert); }
+  .dropdown-item.danger:hover { background:rgba(248,113,113,.08); }
+  .dropdown-divider { height:1px; background:var(--glass-border); }
+
+  /* Meta rows */
+  .card-meta { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid rgba(179,205,228,.06); }
+  .meta-row { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:300; }
+  .meta-row svg { color:var(--steel); flex-shrink:0; }
+  .meta-label { color:var(--steel); white-space:nowrap; }
+  .meta-value { color:var(--haze); font-weight:400; }
+  .meta-value.mono { font-family:var(--font-mono); font-size:12px; }
+
+  /* Card actions */
+  .card-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:auto; }
+  .card-actions .btn { justify-content:center; }
+
+  /* ─── Empty State ───────────────────────────────────────────── */
+  .empty-state { padding:80px 32px; text-align:center; }
+  .empty-icon {
+    width:60px; height:60px; border-radius:14px; display:inline-flex; align-items:center; justify-content:center;
+    background:rgba(179,205,228,.05); border:1px solid var(--glass-border); margin-bottom:16px; color:var(--steel);
+  }
+  .empty-title { font-size:19px; font-weight:500; color:var(--frost); margin-bottom:8px; }
+  .empty-desc { font-size:14px; font-weight:300; color:var(--steel); margin-bottom:24px; }
+
+  /* ─── Modals ─────────────────────────────────────────────────── */
+  .modal-backdrop {
+    position:fixed; inset:0; background:rgba(0,8,18,.75);
+    backdrop-filter:blur(6px); z-index:50;
+    display:none; align-items:center; justify-content:center; padding:24px;
+  }
+  .modal-backdrop.open { display:flex; }
+
+  .modal-box {
+    background:rgba(8,24,42,.97); border:1px solid var(--glass-border);
+    border-radius:16px; width:100%; box-shadow:0 32px 80px rgba(0,0,0,.65);
+    overflow:hidden;
+  }
+  .modal-box.md { max-width:480px; }
+  .modal-box.lg { max-width:680px; }
+
+  .modal-header {
+    padding:20px 24px; border-bottom:1px solid var(--glass-border);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .modal-title { font-size:17px; font-weight:500; color:var(--frost); }
+  .modal-close {
+    width:30px; height:30px; border-radius:6px; background:transparent; border:1px solid transparent;
+    color:var(--steel); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s, color .15s;
+  }
+  .modal-close:hover { background:var(--glass-hover); color:var(--haze); }
+
+  .modal-body { padding:24px; overflow-y:auto; max-height:calc(90vh - 130px); }
+  .modal-body .space-y > * + * { margin-top:16px; }
+
+  .modal-footer { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 24px 24px; }
+  .modal-footer .btn { justify-content:center; }
+
+  /* Form elements inside modal */
+  .modal-body .form-group { margin-bottom:16px; }
+  .modal-body .form-group:last-child { margin-bottom:0; }
+  .modal-body .form-hint { font-size:11px; color:var(--steel); margin-top:5px; }
+
+  /* ─── Upload Dropzone ───────────────────────────────────────── */
+  .upload-dropzone {
+    border:2px dashed rgba(83,118,146,.35); border-radius:10px;
+    padding:24px; text-align:center; cursor:pointer;
+    background:rgba(83,118,146,.04);
+    transition:border-color .2s, background .2s, transform .15s;
+  }
+  .upload-dropzone:hover { border-color:rgba(179,205,228,.4); background:rgba(179,205,228,.05); }
+  .upload-dropzone.drag-over {
+    border-color:var(--haze); background:rgba(179,205,228,.08); transform:scale(1.01);
+  }
+  .dropzone-label { font-size:13px; font-weight:400; color:var(--haze); margin-top:8px; }
+  .dropzone-hint { font-size:11px; color:var(--steel); margin-top:4px; }
+
+  /* Image previews */
+  .image-previews-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+  .image-preview {
+    position:relative; border-radius:8px; overflow:hidden;
+    aspect-ratio:1; border:1px solid var(--glass-border);
+    transition:border-color .2s, transform .15s;
+  }
+  .image-preview:hover { border-color:rgba(179,205,228,.35); transform:scale(1.04); }
+  .image-preview img { width:100%; height:100%; object-fit:cover; display:block; }
+  .preview-delete {
+    position:absolute; top:4px; right:4px; width:20px; height:20px;
+    border-radius:50%; background:rgba(0,0,0,.65); border:none;
+    color:#fff; font-size:10px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s;
+  }
+  .preview-delete:hover { background:var(--alert); }
+
+  /* ─── Stats row (details modal) ──────────────────────────────── */
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  @media(max-width:500px){ .stats-row { grid-template-columns:repeat(2,1fr); } }
+  .stat-cell {
+    border-radius:12px; padding:16px 12px; text-align:center;
+    background:rgba(0,27,46,.55); border:1px solid var(--glass-border);
+  }
+  .stat-value { font-size:26px; font-weight:700; color:var(--frost); line-height:1; }
+  .stat-value.success { color:var(--emerald); }
+  .stat-value.danger  { color:var(--alert); }
+  .stat-value.accent  { color:var(--haze); }
+  .stat-label { font-family:var(--font-mono); font-size:9px; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--steel); margin-top:6px; }
+
+  .attendance-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border-radius:10px;
+    background:rgba(0,27,46,.4); border:1px solid rgba(179,205,228,.06);
+    margin-bottom:8px;
+  }
+  .attendance-item:last-child { margin-bottom:0; }
+  .att-subject { font-size:13px; font-weight:400; color:var(--frost); }
+  .att-meta { font-size:11px; font-weight:300; color:var(--steel); margin-top:2px; }
+
+  .status-pill {
+    display:inline-block; padding:3px 10px; border-radius:100px;
+    font-size:11px; font-weight:500; letter-spacing:.04em;
+  }
+  .status-present { color:var(--emerald); background:rgba(45,212,191,.08); border:1px solid rgba(45,212,191,.24); }
+  .status-absent  { color:var(--alert);   background:rgba(248,113,113,.07); border:1px solid rgba(248,113,113,.22); }
+
+  .section-title { font-size:14px; font-weight:500; color:var(--frost); margin-bottom:12px; }
+
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spin { animation:spin .7s linear infinite; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header with gradient -->
-    <div class="students-header glass rounded-2xl p-6 border border-gray-700/50">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-            <div>
-                <h1 class="text-2xl font-bold gradient-text mb-2 flex items-center">
-                    <i class="fas fa-users mr-3 text-primary-400"></i>Student Management
-                </h1>
-                <p class="text-gray-400">Register new students and manage existing records</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="px-3 py-1.5 bg-gray-700 rounded-lg text-sm font-medium text-gray-300">
-                    <i class="fas fa-user-graduate mr-2"></i>{{ students|length }} Registered
-                </span>
-                <button onclick="showAddStudentModal()"
-                        class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2">
-                    <i class="fas fa-user-plus"></i>Add Student
-                </button>
-            </div>
-        </div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="page-content">
+
+  <!-- ── Page Header ───────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="section-eyebrow">03 — Records</div>
+      <h1 class="page-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Student Management
+      </h1>
+      <p class="page-subtitle">Register new students and manage existing records</p>
     </div>
-
-    <!-- Search & Filters -->
-    <div class="glass rounded-2xl p-6 border border-gray-700/50">
-        <form method="GET" action="{{ url_for('students') }}" class="space-y-4" id="filterForm">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="md:col-span-2">
-                    <label class="block text-sm text-gray-400 mb-2">Search Students</label>
-                    <div class="relative">
-                        <input type="text" 
-                               name="search" 
-                               value="{{ search }}"
-                               placeholder="Search by name, roll number, or department..."
-                               class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 pl-10 text-sm text-white backdrop-blur-sm">
-                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-2">Department</label>
-                    <select name="department" class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm">
-                        <option value="">All Departments</option>
-                        {% for dept in departments %}
-                        <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="flex items-end">
-                    <button type="submit" 
-                            class="w-full px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                        <i class="fas fa-search mr-2"></i>Search
-                    </button>
-                </div>
-            </div>
-        </form>
+    <div class="header-actions">
+      <div class="count-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+          <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+        </svg>
+        {{ students|length }} Registered
+      </div>
+      <button onclick="showAddStudentModal()" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+        Add Student
+      </button>
     </div>
+  </div>
 
-    <!-- Students Grid -->
-    {% if students %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {% for student in students %}
-        <!-- Added data-student-year attribute -->
-        <div class="student-card rounded-xl p-5"
-             data-student-id="{{ student.id }}"
-             data-student-name="{{ student.name }}"
-             data-student-roll="{{ student.roll_no or '' }}"
-             data-student-dept="{{ student.department or '' }}"
-             data-student-year="{{ student.year or '' }}"
-             data-student-username="{{ student.username or '' }}">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-full gradient-avatar flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                        {{ student.name[0]|upper }}
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-white">{{ student.name }}</h3>
-                        <div class="flex items-center gap-2 mt-1">
-                            {% if student.roll_no %}
-                            <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">{{ student.roll_no }}</span>
-                            {% endif %}
-                            <span class="face-count-badge" title="{{ student.face_count or 0 }} face images">
-                                <i class="fas fa-camera mr-1 text-xs"></i>{{ student.face_count or 0 }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="relative">
-                    <button onclick="toggleStudentMenu({{ student.id }})" 
-                            class="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                    <div id="menu-{{ student.id }}" class="dropdown-menu hidden absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50">
-                        <button onclick="editStudent({{ student.id }})" class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
-                            <i class="fas fa-edit mr-3"></i>Edit
-                        </button>
-                        <button onclick="addFaceImages({{ student.id }})" class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
-                            <i class="fas fa-camera mr-3"></i>Add Face Images
-                        </button>
-                        <button onclick="viewStudentDetails({{ student.id }})" class="w-full text-left px-4 py-3 text-gray-300 hover:bg-gray-800 transition-colors">
-                            <i class="fas fa-eye mr-3"></i>View Details
-                        </button>
-                        <div class="border-t border-gray-700 my-1"></div>
-                        <button onclick="deleteStudent({{ student.id }}, {{ student.name|tojson|safe }})" 
-                                class="w-full text-left px-4 py-3 text-danger-400 hover:bg-danger-900/30 transition-colors">
-                            <i class="fas fa-trash mr-3"></i>Delete
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-3 mb-4">
-                <div class="flex items-center text-sm">
-                    <i class="fas fa-building text-gray-500 mr-3 w-5"></i>
-                    <span class="text-gray-400">Department:</span>
-                    <span class="text-white ml-2">{{ student.department or 'Not specified' }}</span>
-                </div>
-                <!-- NEW: Year display -->
-                <div class="flex items-center text-sm">
-                    <i class="fas fa-calendar-alt text-gray-500 mr-3 w-5"></i>
-                    <span class="text-gray-400">Year:</span>
-                    <span class="text-white ml-2">
-                        {% if student.year %}
-                            {{ student.year }}{% if student.year == 1 %}st{% elif student.year == 2 %}nd{% elif student.year == 3 %}rd{% else %}th{% endif %} Year
-                        {% else %}
-                            Not specified
-                        {% endif %}
-                    </span>
-                </div>
-                <div class="flex items-center text-sm">
-                    <i class="fas fa-calendar-check text-gray-500 mr-3 w-5"></i>
-                    <span class="text-gray-400">Attendance:</span>
-                    <span class="text-white ml-2">{{ student.attendance_count or 0 }} sessions</span>
-                </div>
-                <div class="flex items-center text-sm">
-                    <i class="fas fa-images text-gray-500 mr-3 w-5"></i>
-                    <span class="text-gray-400">Face Images:</span>
-                    <span class="text-white ml-2">{{ student.face_count or 0 }}</span>
-                </div>
-            </div>
-
-            <div class="flex gap-2 pt-4 border-t border-gray-700">
-                <button onclick="editStudent({{ student.id }})"
-                        class="flex-1 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-sm font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-edit mr-1"></i> Edit
-                </button>
-                <button onclick="viewStudentDetails({{ student.id }})"
-                        class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-sm font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-eye mr-1"></i> View
-                </button>
-            </div>
+  <!-- ── Search & Filter ───────────────────────────────────────── -->
+  <div class="glass-l2 filter-bar" style="margin-bottom:24px;">
+    <form method="GET" action="{{ url_for('students') }}" id="filterForm">
+      <div class="filter-grid">
+        <div style="grid-column:span 1;">
+          <label class="form-label">Search</label>
+          <div class="search-wrap">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" name="search" value="{{ search }}"
+                   placeholder="Name, roll number, department…"
+                   class="form-input">
+          </div>
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="text-center py-16 glass rounded-2xl border border-gray-700/50">
-        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-700 mb-4">
-            <i class="fas fa-users text-gray-500 text-3xl"></i>
+        <div>
+          <label class="form-label">Department</label>
+          <select name="department" class="form-select">
+            <option value="">All Departments</option>
+            {% for dept in departments %}
+            <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <h3 class="text-xl font-medium text-white mb-2">No Students Found</h3>
-        <p class="text-gray-400 mb-6">
-            {% if search or selected_department %}
-                No students match your search criteria.
-            {% else %}
-                Get started by adding your first student.
-            {% endif %}
-        </p>
-        <button onclick="showAddStudentModal()"
-                class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-            <i class="fas fa-user-plus"></i> Add First Student
+        <div style="display:flex;align-items:flex-end;">
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Search
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Students Grid ─────────────────────────────────────────── -->
+  {% if students %}
+  <div class="students-grid">
+    {% for student in students %}
+    <div class="student-card"
+         data-student-id="{{ student.id }}"
+         data-student-name="{{ student.name }}"
+         data-student-roll="{{ student.roll_no or '' }}"
+         data-student-dept="{{ student.department or '' }}"
+         data-student-year="{{ student.year or '' }}"
+         data-student-username="{{ student.username or '' }}">
+
+      <div class="card-top">
+        <div class="card-identity">
+          <div class="student-avatar">{{ student.name[0]|upper }}</div>
+          <div>
+            <div class="student-name">{{ student.name }}</div>
+            <div class="card-tags">
+              {% if student.roll_no %}
+              <span class="roll-tag">{{ student.roll_no }}</span>
+              {% endif %}
+              <span class="face-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                {{ student.face_count or 0 }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kebab-wrap">
+          <button class="kebab-btn" onclick="toggleStudentMenu({{ student.id }}, event)" aria-label="Options">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+          </button>
+          <div id="menu-{{ student.id }}" class="dropdown-menu">
+            <button class="dropdown-item" onclick="editStudent({{ student.id }})">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Edit
+            </button>
+            <button class="dropdown-item" onclick="addFaceImages({{ student.id }})">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Add Face Images
+            </button>
+            <button class="dropdown-item" onclick="viewStudentDetails({{ student.id }})">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              View Details
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item danger" onclick="deleteStudent({{ student.id }}, {{ student.name|tojson|safe }})">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta Info -->
+      <div class="card-meta">
+        <div class="meta-row">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+          </svg>
+          <span class="meta-label">Dept</span>
+          <span class="meta-value">{{ student.department or 'Not specified' }}</span>
+        </div>
+        <div class="meta-row">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span class="meta-label">Year</span>
+          <span class="meta-value">
+            {% if student.year %}
+              {{ student.year }}{% if student.year == 1 %}st{% elif student.year == 2 %}nd{% elif student.year == 3 %}rd{% else %}th{% endif %} Year
+            {% else %}Not specified{% endif %}
+          </span>
+        </div>
+        <div class="meta-row">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span class="meta-label">Attendance</span>
+          <span class="meta-value mono">{{ student.attendance_count or 0 }} sessions</span>
+        </div>
+        <div class="meta-row">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span class="meta-label">Face Images</span>
+          <span class="meta-value mono">{{ student.face_count or 0 }}</span>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" onclick="editStudent({{ student.id }})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Edit
         </button>
+        <button class="btn btn-secondary btn-sm" onclick="viewStudentDetails({{ student.id }})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          View
+        </button>
+      </div>
     </div>
-    {% endif %}
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty State -->
+  <div class="glass-l2 empty-state">
+    <div class="empty-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </div>
+    <div class="empty-title">No students found</div>
+    <p class="empty-desc">
+      {% if search or selected_department %}
+        No students match your search criteria.
+      {% else %}
+        Get started by adding your first student.
+      {% endif %}
+    </p>
+    <button onclick="showAddStudentModal()" class="btn btn-primary" style="margin:0 auto;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+      </svg>
+      Add First Student
+    </button>
+  </div>
+  {% endif %}
+
+</div><!-- /page-content -->
+
+<!-- ── Add / Edit Student Modal ──────────────────────────────── -->
+<div id="studentModal" class="modal-backdrop" onclick="handleModalBackdrop(event, 'studentModal', closeStudentModal)">
+  <div class="modal-box md">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Add New Student</div>
+      <button class="modal-close" onclick="closeStudentModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="studentForm" class="modal-body">
+      <input type="hidden" name="action" id="formAction" value="add">
+      <input type="hidden" name="student_id" id="formStudentId">
+
+      <div class="form-group">
+        <label class="form-label">Student Name <span style="color:var(--alert)">*</span></label>
+        <input type="text" name="name" id="studentName" required class="form-input" placeholder="Enter full name">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Roll Number</label>
+        <input type="text" name="roll_no" id="studentRollNo" class="form-input" placeholder="Optional roll number">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <select name="department" id="studentDepartment" class="form-select">
+          <option value="">Select Department</option>
+          {% for dept in departments %}
+          <option value="{{ dept }}">{{ dept }}</option>
+          {% endfor %}
+          <option value="other">Other…</option>
+        </select>
+        <input type="text" name="new_department" id="newDepartment"
+               placeholder="Enter department name"
+               class="form-input" style="margin-top:8px;display:none;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Year</label>
+        <select name="year" id="studentYear" class="form-select">
+          <option value="">Select Year</option>
+          <option value="1">1st Year</option>
+          <option value="2">2nd Year</option>
+          <option value="3">3rd Year</option>
+          <option value="4">4th Year</option>
+          <option value="5">5th Year</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Login Username <span style="color:var(--alert)">*</span></label>
+        <input type="text" name="username" id="studentUsername" required class="form-input" placeholder="Username for student login">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Login Password <span style="color:var(--alert)">*</span></label>
+        <input type="password" name="password" id="studentPassword" required class="form-input" placeholder="Minimum 6 characters">
+        <div class="form-hint">Minimum 6 characters</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Face Images</label>
+        <div class="upload-dropzone"
+             onclick="document.getElementById('faceImages').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--steel);margin-bottom:8px;">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
+          <div class="dropzone-label">Drop images here or click to browse</div>
+          <div class="dropzone-hint">3–5 clear face images, different angles. Max 5 MB each.</div>
+          <input type="file" id="faceImages" name="images" multiple accept="image/*" class="hidden" style="display:none;" onchange="handleImageSelect(this)">
+        </div>
+        <div id="imagePreviews" class="image-previews-grid" style="display:none;"></div>
+      </div>
+
+      <div class="modal-footer" style="padding:20px 0 0;margin-top:20px;border-top:1px solid var(--glass-border);">
+        <button type="button" onclick="closeStudentModal()" class="btn btn-ghost">Cancel</button>
+        <button type="submit" id="submitBtn" class="btn btn-primary">
+          <svg id="submitIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+          </svg>
+          <span id="submitText">Add Student</span>
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Add/Edit Student Modal -->
-<div id="studentModal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-50">
-    <div class="glass rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden border border-gray-700/50">
-        <div class="p-6 border-b border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold gradient-text" id="modalTitle">Add New Student</h3>
-                <button onclick="closeStudentModal()" 
-                        class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-                    <i class="fas fa-times text-gray-400"></i>
-                </button>
-            </div>
-        </div>
-        
-        <form id="studentForm" class="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
-            <input type="hidden" name="action" id="formAction" value="add">
-            <input type="hidden" name="student_id" id="formStudentId">
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Student Name *</label>
-                <input type="text" name="name" id="studentName" required
-                       class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
-                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm"
-                       placeholder="Enter full name">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Roll Number</label>
-                <input type="text" name="roll_no" id="studentRollNo"
-                       class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
-                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm"
-                       placeholder="Optional roll number">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Department</label>
-                <select name="department" id="studentDepartment"
-                        class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white backdrop-blur-sm">
-                    <option value="">Select Department</option>
-                    {% for dept in departments %}
-                    <option value="{{ dept }}">{{ dept }}</option>
-                    {% endfor %}
-                    <option value="other">Other</option>
-                </select>
-                <input type="text" name="new_department" id="newDepartment"
-                       placeholder="Enter new department"
-                       class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 mt-2 hidden backdrop-blur-sm">
-            </div>
-
-            <!-- NEW: Year selection -->
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Year</label>
-                <select name="year" id="studentYear"
-                        class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white backdrop-blur-sm">
-                    <option value="">Select Year</option>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                    <option value="5">5th Year</option>
-                </select>
-            </div>
-
-            <!-- Username and Password fields -->
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Login Username *</label>
-                <input type="text" name="username" id="studentUsername" required
-                       class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
-                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm"
-                       placeholder="Username for student login">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Login Password *</label>
-                <input type="password" name="password" id="studentPassword" required
-                       class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
-                              focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm"
-                       placeholder="Minimum 6 characters">
-                <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Face Images</label>
-                <div class="upload-dropzone rounded-xl p-6 text-center cursor-pointer"
-                     onclick="document.getElementById('faceImages').click()"
-                     ondragover="handleDragOver(event)"
-                     ondragleave="handleDragLeave(event)"
-                     ondrop="handleDrop(event)">
-                    <i class="fas fa-cloud-upload-alt text-gray-500 text-3xl mb-3"></i>
-                    <p class="text-gray-400 mb-1">Drop face images here or click to browse</p>
-                    <p class="text-xs text-gray-500">Upload 3-5 clear face images with different angles</p>
-                    <input type="file" id="faceImages" name="images" multiple accept="image/*" class="hidden" onchange="handleImageSelect(this)">
-                </div>
-                <div id="imagePreviews" class="grid grid-cols-4 gap-2 mt-4 hidden"></div>
-            </div>
-            
-            <div class="flex gap-3 pt-6 border-t border-gray-700">
-                <button type="button" onclick="closeStudentModal()"
-                        class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    Cancel
-                </button>
-                <button type="submit" id="submitBtn"
-                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <span id="submitText">Add Student</span>
-                    <i class="fas fa-spinner fa-spin hidden ml-2" id="submitSpinner"></i>
-                </button>
-            </div>
-        </form>
+<!-- ── Student Details Modal ─────────────────────────────────── -->
+<div id="detailsModal" class="modal-backdrop" onclick="handleModalBackdrop(event, 'detailsModal', closeDetailsModal)">
+  <div class="modal-box lg">
+    <div class="modal-header">
+      <div class="modal-title" id="detailsModalTitle">Student Details</div>
+      <button class="modal-close" onclick="closeDetailsModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
-</div>
-
-<!-- Student Details Modal -->
-<div id="detailsModal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-50">
-    <div class="glass rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-700/50">
-        <div class="p-6 border-b border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold gradient-text" id="detailsModalTitle">Student Details</h3>
-                <button onclick="closeDetailsModal()" 
-                        class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-                    <i class="fas fa-times text-gray-400"></i>
-                </button>
-            </div>
-        </div>
-        <div class="p-6 overflow-y-auto" id="detailsModalBody">
-            <div class="text-center py-8">
-                <i class="fas fa-spinner fa-spin text-primary-400 text-2xl"></i>
-                <p class="text-gray-400 mt-2">Loading student details...</p>
-            </div>
-        </div>
+    <div class="modal-body" id="detailsModalBody">
+      <div style="text-align:center;padding:40px 0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="spin" style="color:var(--steel);margin-bottom:12px;">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        <p style="font-size:13px;color:var(--steel);">Loading student details…</p>
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
-// Global variables
+/* ── State ── */
 let selectedImages = [];
 let currentStudentId = null;
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(event) {
-    if (!event.target.closest('.relative')) {
-        document.querySelectorAll('.dropdown-menu').forEach(menu => {
-            menu.classList.add('hidden');
-        });
-    }
+/* ── Backdrop helper ── */
+function handleModalBackdrop(e, id, closeFn) {
+  if (e.target === document.getElementById(id)) closeFn();
+}
+
+/* ── Kebab menus ── */
+function toggleStudentMenu(studentId, e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById(`menu-${studentId}`);
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 });
 
-// Show add student modal
+/* ── Show Add Student Modal ── */
 function showAddStudentModal() {
-    document.getElementById('modalTitle').textContent = 'Add New Student';
-    document.getElementById('formAction').value = 'add';
-    document.getElementById('formStudentId').value = '';
-    document.getElementById('studentName').value = '';
-    document.getElementById('studentRollNo').value = '';
-    document.getElementById('studentDepartment').value = '';
-    document.getElementById('studentYear').value = '';   // NEW: reset year
-    document.getElementById('studentUsername').value = '';
-    document.getElementById('studentPassword').value = '';
-    document.getElementById('submitText').textContent = 'Add Student';
-    document.getElementById('submitSpinner').classList.add('hidden');
-    
-    selectedImages = [];
-    document.getElementById('imagePreviews').innerHTML = '';
-    document.getElementById('imagePreviews').classList.add('hidden');
-    
-    document.getElementById('studentModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    
-    setTimeout(() => {
-        document.getElementById('studentName').focus();
-    }, 100);
+  document.getElementById('modalTitle').textContent = 'Add New Student';
+  document.getElementById('formAction').value = 'add';
+  document.getElementById('formStudentId').value = '';
+  document.getElementById('studentName').value = '';
+  document.getElementById('studentRollNo').value = '';
+  document.getElementById('studentDepartment').value = '';
+  document.getElementById('studentYear').value = '';
+  document.getElementById('studentUsername').value = '';
+  document.getElementById('studentPassword').value = '';
+  document.getElementById('submitText').textContent = 'Add Student';
+  resetSubmitBtn('Add Student');
+  selectedImages = [];
+  document.getElementById('imagePreviews').innerHTML = '';
+  document.getElementById('imagePreviews').style.display = 'none';
+  document.getElementById('studentModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('studentName').focus(), 100);
 }
 
-// Edit student – added year handling
+/* ── Edit Student ── */
 function editStudent(studentId) {
-    const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`);
-    if (!card) return;
-
-    const name = card.getAttribute('data-student-name');
-    const rollNo = card.getAttribute('data-student-roll');
-    const dept = card.getAttribute('data-student-dept');
-    const year = card.getAttribute('data-student-year');   // NEW: get year
-    const username = card.getAttribute('data-student-username');
-
-    document.getElementById('modalTitle').textContent = 'Edit Student';
-    document.getElementById('formAction').value = 'edit';
-    document.getElementById('formStudentId').value = studentId;
-    document.getElementById('studentName').value = name;
-    document.getElementById('studentRollNo').value = rollNo;
-    document.getElementById('studentDepartment').value = dept;
-    document.getElementById('studentYear').value = year;   // NEW: set year
-    document.getElementById('studentUsername').value = username;
-    document.getElementById('studentPassword').value = '';
-    document.getElementById('submitText').textContent = 'Update Student';
-    document.getElementById('submitSpinner').classList.add('hidden');
-
-    selectedImages = [];
-    document.getElementById('imagePreviews').innerHTML = '';
-    document.getElementById('imagePreviews').classList.add('hidden');
-
-    document.getElementById('studentModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-
-    toggleStudentMenu(studentId);
+  const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`);
+  if (!card) return;
+  document.getElementById('modalTitle').textContent = 'Edit Student';
+  document.getElementById('formAction').value = 'edit';
+  document.getElementById('formStudentId').value = studentId;
+  document.getElementById('studentName').value = card.dataset.studentName;
+  document.getElementById('studentRollNo').value = card.dataset.studentRoll;
+  document.getElementById('studentDepartment').value = card.dataset.studentDept;
+  document.getElementById('studentYear').value = card.dataset.studentYear;
+  document.getElementById('studentUsername').value = card.dataset.studentUsername;
+  document.getElementById('studentPassword').value = '';
+  resetSubmitBtn('Update Student');
+  selectedImages = [];
+  document.getElementById('imagePreviews').innerHTML = '';
+  document.getElementById('imagePreviews').style.display = 'none';
+  document.getElementById('studentModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 }
 
-// Toggle student menu
-function toggleStudentMenu(studentId) {
-    const menu = document.getElementById(`menu-${studentId}`);
-    if (menu) {
-        document.querySelectorAll('.dropdown-menu').forEach(m => {
-            if (m.id !== `menu-${studentId}`) {
-                m.classList.add('hidden');
-            }
-        });
-        menu.classList.toggle('hidden');
-    }
-}
-
-// Close student modal
+/* ── Close Student Modal ── */
 function closeStudentModal() {
-    document.getElementById('studentModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
+  document.getElementById('studentModal').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
-// Add face images
+/* ── Add Face Images ── */
 function addFaceImages(studentId) {
-    const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`);
-    if (!card) return;
-
-    const name = card.getAttribute('data-student-name');
-    currentStudentId = studentId;
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
-    input.onchange = function(e) {
-        uploadFaceImages(studentId, e.target.files);
-    };
-    input.click();
-
-    toggleStudentMenu(studentId);
+  currentStudentId = studentId;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+  input.onchange = e => uploadFaceImages(studentId, e.target.files);
+  input.click();
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 }
 
-// Upload face images
 async function uploadFaceImages(studentId, files) {
-    if (!files || files.length === 0) return;
-
-    const formData = new FormData();
-    formData.append('student_id', studentId);
-
-    for (let i = 0; i < files.length; i++) {
-        formData.append('images', files[i]);
-    }
-
-    try {
-        showLoading('Uploading images...');
-        const response = await fetch('/api/upload_student_faces', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-        hideLoading();
-
-        if (data.success) {
-            toast(`Uploaded ${data.uploaded} face images`, 'success');
-            setTimeout(() => window.location.reload(), 1500);
-        } else {
-            toast(data.error || 'Upload failed', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        toast('Upload failed: ' + error.message, 'error');
-    }
-}
-
-// View student details
-async function viewStudentDetails(studentId) {
-    const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`);
-    if (!card) return;
-
-    const name = card.getAttribute('data-student-name');
-
-    document.getElementById('detailsModalTitle').textContent = `Student Details: ${name}`;
-    document.getElementById('detailsModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-
-    toggleStudentMenu(studentId);
-
-    try {
-        const response = await fetch(`/api/student_attendance?student_id=${studentId}`);
-        const data = await response.json();
-
-        if (data.success) {
-            displayStudentDetails(data);
-        } else {
-            document.getElementById('detailsModalBody').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-exclamation-circle text-danger-400 text-2xl mb-3"></i>
-                    <p class="text-gray-400">${data.error || 'Failed to load student details'}</p>
-                </div>
-            `;
-        }
-    } catch (error) {
-        document.getElementById('detailsModalBody').innerHTML = `
-            <div class="text-center py-8">
-                <i class="fas fa-exclamation-circle text-danger-400 text-2xl mb-3"></i>
-                <p class="text-gray-400">Error loading student details</p>
-            </div>
-        `;
-    }
-}
-
-// Display student details
-function displayStudentDetails(data) {
-    const summary = data.summary || {};
-    const recent = data.recent_attendance || [];
-
-    let html = `
-        <div class="space-y-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-gray-800 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-white">${summary.total_sessions || 0}</div>
-                    <div class="text-xs text-gray-400">Total Sessions</div>
-                </div>
-                <div class="bg-gray-800 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-success">${summary.present_count || 0}</div>
-                    <div class="text-xs text-gray-400">Present</div>
-                </div>
-                <div class="bg-gray-800 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-danger">${summary.absent_count || 0}</div>
-                    <div class="text-xs text-gray-400">Absent</div>
-                </div>
-                <div class="bg-gray-800 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-primary">${summary.attendance_percent || 0}%</div>
-                    <div class="text-xs text-gray-400">Attendance</div>
-                </div>
-            </div>
-            
-            <div>
-                <h4 class="font-medium text-white mb-3">Recent Attendance</h4>
-    `;
-
-    if (recent.length > 0) {
-        html += '<div class="space-y-2">';
-        recent.forEach(record => {
-            html += `
-                <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                    <div>
-                        <div class="font-medium text-white">${record.subject_name}</div>
-                        <div class="text-xs text-gray-400">${record.date} • ${record.teacher_name}</div>
-                    </div>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'present' 
-                        ? 'bg-success-900/30 text-success-300' 
-                        : 'bg-danger-900/30 text-danger-300'
-                    }">
-                        ${record.status === 'present' ? 'Present' : 'Absent'}
-                    </span>
-                </div>
-            `;
-        });
-        html += '</div>';
+  if (!files || !files.length) return;
+  const formData = new FormData();
+  formData.append('student_id', studentId);
+  for (let i = 0; i < files.length; i++) formData.append('images', files[i]);
+  try {
+    if (typeof showLoading === 'function') showLoading('Uploading images…');
+    const response = await fetch('/api/upload_student_faces', { method:'POST', body:formData });
+    const data = await response.json();
+    if (typeof hideLoading === 'function') hideLoading();
+    if (data.success) {
+      if (typeof toast === 'function') toast(`Uploaded ${data.uploaded} face images`, 'success');
+      setTimeout(() => window.location.reload(), 1500);
     } else {
-        html += `
-            <div class="text-center py-8 bg-gray-800 rounded-lg">
-                <i class="fas fa-calendar-times text-gray-500 text-2xl mb-2"></i>
-                <p class="text-gray-400">No attendance records found</p>
-            </div>
-        `;
+      if (typeof toast === 'function') toast(data.error || 'Upload failed', 'error');
     }
-
-    html += '</div></div>';
-    document.getElementById('detailsModalBody').innerHTML = html;
+  } catch (err) {
+    if (typeof hideLoading === 'function') hideLoading();
+    if (typeof toast === 'function') toast('Upload failed: ' + err.message, 'error');
+  }
 }
 
-// Close details modal
+/* ── View Student Details ── */
+async function viewStudentDetails(studentId) {
+  const card = document.querySelector(`.student-card[data-student-id="${studentId}"]`);
+  if (!card) return;
+  document.getElementById('detailsModalTitle').textContent = `Details — ${card.dataset.studentName}`;
+  document.getElementById('detailsModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+
+  document.getElementById('detailsModalBody').innerHTML = `
+    <div style="text-align:center;padding:40px 0;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="spin" style="color:var(--steel);margin-bottom:12px;">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+      </svg>
+      <p style="font-size:13px;color:var(--steel);">Loading…</p>
+    </div>`;
+
+  try {
+    const response = await fetch(`/api/student_attendance?student_id=${studentId}`);
+    const data = await response.json();
+    if (data.success) displayStudentDetails(data);
+    else document.getElementById('detailsModalBody').innerHTML = `<p style="color:var(--alert);text-align:center;padding:32px 0;">${data.error || 'Failed to load details'}</p>`;
+  } catch {
+    document.getElementById('detailsModalBody').innerHTML = `<p style="color:var(--alert);text-align:center;padding:32px 0;">Error loading student details</p>`;
+  }
+}
+
+function displayStudentDetails(data) {
+  const s = data.summary || {};
+  const recent = data.recent_attendance || [];
+
+  let html = `
+    <div class="stats-row">
+      <div class="stat-cell"><div class="stat-value">${s.total_sessions||0}</div><div class="stat-label">Sessions</div></div>
+      <div class="stat-cell"><div class="stat-value success">${s.present_count||0}</div><div class="stat-label">Present</div></div>
+      <div class="stat-cell"><div class="stat-value danger">${s.absent_count||0}</div><div class="stat-label">Absent</div></div>
+      <div class="stat-cell"><div class="stat-value accent">${s.attendance_percent||0}%</div><div class="stat-label">Rate</div></div>
+    </div>
+    <div class="section-title">Recent Attendance</div>`;
+
+  if (recent.length > 0) {
+    recent.forEach(r => {
+      html += `
+        <div class="attendance-item">
+          <div>
+            <div class="att-subject">${r.subject_name}</div>
+            <div class="att-meta">${r.date} &middot; ${r.teacher_name}</div>
+          </div>
+          <span class="status-pill ${r.status==='present'?'status-present':'status-absent'}">
+            ${r.status==='present'?'Present':'Absent'}
+          </span>
+        </div>`;
+    });
+  } else {
+    html += `<p style="text-align:center;color:var(--steel);padding:24px 0;font-size:13px;">No attendance records found.</p>`;
+  }
+
+  document.getElementById('detailsModalBody').innerHTML = html;
+}
+
 function closeDetailsModal() {
-    document.getElementById('detailsModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
+  document.getElementById('detailsModal').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
-// Delete student
+/* ── Delete Student ── */
 function deleteStudent(studentId, studentName) {
-    if (confirm(`Are you sure you want to delete "${studentName}"? This will remove all their attendance records and face images.`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("students") }}';
-
-        const actionInput = document.createElement('input');
-        actionInput.type = 'hidden';
-        actionInput.name = 'action';
-        actionInput.value = 'delete';
-
-        const idInput = document.createElement('input');
-        idInput.type = 'hidden';
-        idInput.name = 'student_id';
-        idInput.value = studentId;
-
-        form.appendChild(actionInput);
-        form.appendChild(idInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
-
-    toggleStudentMenu(studentId);
+  if (confirm(`Delete "${studentName}"? This will remove all their attendance records and face images.`)) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("students") }}';
+    const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='delete';
+    const b = document.createElement('input'); b.type='hidden'; b.name='student_id'; b.value=studentId;
+    form.appendChild(a); form.appendChild(b);
+    document.body.appendChild(form); form.submit();
+  }
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 }
 
-// Form submission
+/* ── Form Submission ── */
 document.getElementById('studentForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+  e.preventDefault();
+  const name = document.getElementById('studentName').value.trim();
+  if (!name) { if (typeof toast==='function') toast('Student name is required', 'error'); return; }
 
-    const submitBtn = document.getElementById('submitBtn');
-    const submitText = document.getElementById('submitText');
-    const submitSpinner = document.getElementById('submitSpinner');
+  const submitBtn = document.getElementById('submitBtn');
+  const submitText = document.getElementById('submitText');
+  const submitIcon = document.getElementById('submitIcon');
+  submitBtn.disabled = true;
+  submitText.textContent = 'Saving…';
+  submitIcon.innerHTML = `<path d="M21 12a9 9 0 1 1-6.219-8.56"/>`;
+  submitIcon.classList.add('spin');
 
-    const name = document.getElementById('studentName').value.trim();
-    if (!name) {
-        toast('Student name is required', 'error');
-        return;
+  try {
+    const formData = new FormData(this);
+    const deptSelect = document.getElementById('studentDepartment');
+    const newDept = document.getElementById('newDepartment');
+    if (deptSelect.value === 'other' && newDept.value.trim()) {
+      formData.set('department', newDept.value.trim());
+    } else if (deptSelect.value && deptSelect.value !== 'other') {
+      formData.set('department', deptSelect.value);
+    } else {
+      formData.set('department', '');
     }
+    selectedImages.forEach(file => formData.append('images', file));
 
-    submitBtn.disabled = true;
-    submitText.textContent = 'Saving...';
-    submitSpinner.classList.remove('hidden');
-
-    try {
-        const formData = new FormData(this);
-
-        const deptSelect = document.getElementById('studentDepartment');
-        const newDept = document.getElementById('newDepartment');
-        if (deptSelect.value === 'other' && newDept.value.trim()) {
-            formData.set('department', newDept.value.trim());
-        } else if (deptSelect.value && deptSelect.value !== 'other' && deptSelect.value !== '') {
-            formData.set('department', deptSelect.value);
-        } else {
-            formData.set('department', '');
-        }
-
-        selectedImages.forEach(file => {
-            formData.append('images', file);
-        });
-
-        const response = await fetch('{{ url_for("students") }}', {
-            method: 'POST',
-            body: formData
-        });
-
-        const contentType = response.headers.get('content-type');
-
-        if (!response.ok) {
-            if (contentType && contentType.includes('application/json')) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Server error: ${response.status}`);
-            } else {
-                const text = await response.text();
-                console.error('Non-JSON error response:', text);
-                throw new Error(`Server error: ${response.status}. Check console for details.`);
-            }
-        }
-
-        if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-
-            if (data.success) {
-                toast(data.message || 'Student saved successfully', 'success');
-                closeStudentModal();
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                throw new Error(data.error || 'Error saving student');
-            }
-        } else {
-            const text = await response.text();
-            console.error('Unexpected response type:', text.substring(0, 200));
-            throw new Error('Server returned unexpected response. Check console for details.');
-        }
-    } catch (error) {
-        toast(error.message || 'Error saving student', 'error');
-        console.error('Submission error:', error);
-        submitBtn.disabled = false;
-        submitText.textContent = document.getElementById('formAction').value === 'add' ? 'Add Student' : 'Update Student';
-        submitSpinner.classList.add('hidden');
+    const response = await fetch('{{ url_for("students") }}', { method:'POST', body:formData });
+    const contentType = response.headers.get('content-type');
+    if (!response.ok) {
+      const msg = contentType && contentType.includes('application/json') ? (await response.json()).error : `Server error: ${response.status}`;
+      throw new Error(msg);
     }
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      if (data.success) {
+        if (typeof toast==='function') toast(data.message || 'Student saved.', 'success');
+        closeStudentModal();
+        setTimeout(() => window.location.reload(), 1500);
+      } else { throw new Error(data.error || 'Error saving student'); }
+    } else { throw new Error('Unexpected server response'); }
+  } catch (err) {
+    if (typeof toast==='function') toast(err.message || 'Error saving student', 'error');
+    resetSubmitBtn(document.getElementById('formAction').value === 'add' ? 'Add Student' : 'Update Student');
+  }
 });
 
-// Image upload handling
-function handleImageSelect(input) {
-    const files = input.files;
-    handleFiles(files);
+function resetSubmitBtn(label) {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  document.getElementById('submitText').textContent = label;
+  const icon = document.getElementById('submitIcon');
+  icon.classList.remove('spin');
+  icon.innerHTML = `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`;
 }
 
-function handleDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-}
-
+/* ── Image Handling ── */
+function handleImageSelect(input) { handleFiles(input.files); }
+function handleDragOver(e)  { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('drag-over'); }
+function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drag-over'); }
 function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    const files = e.dataTransfer.files;
-    handleFiles(files);
+  e.preventDefault(); e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
 }
 
 function handleFiles(files) {
-    const previewsContainer = document.getElementById('imagePreviews');
-    previewsContainer.innerHTML = '';
+  const container = document.getElementById('imagePreviews');
+  container.innerHTML = '';
+  let total = 0;
+  for (let i = 0; i < files.length; i++) total += files[i].size;
+  if (total > 15*1024*1024) { if(typeof toast==='function') toast('Total size exceeds 15 MB limit','error'); return; }
 
-    let totalSize = 0;
-    const MAX_TOTAL_SIZE = 15 * 1024 * 1024;
-
-    for (let i = 0; i < files.length; i++) {
-        totalSize += files[i].size;
-    }
-
-    if (totalSize > MAX_TOTAL_SIZE) {
-        toast(`Total file size (${(totalSize/1024/1024).toFixed(2)}MB) exceeds 15MB limit`, 'error');
-        return;
-    }
-
-    for (let i = 0; i < Math.min(files.length, 10); i++) {
-        const file = files[i];
-
-        if (!file.type.match('image.*')) {
-            toast(`Skipped ${file.name}: Not an image file`, 'warning');
-            continue;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            toast(`Skipped ${file.name}: File too large (max 5MB)`, 'warning');
-            continue;
-        }
-
-        selectedImages.push(file);
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.createElement('div');
-            preview.className = 'image-preview';
-            preview.innerHTML = `
-                <img src="${e.target.result}" alt="Preview">
-                <button type="button" onclick="removeImage(${selectedImages.length - 1})" 
-                        class="delete-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            previewsContainer.appendChild(preview);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    if (selectedImages.length > 0) {
-        previewsContainer.classList.remove('hidden');
-        toast(`Selected ${selectedImages.length} image(s)`, 'success');
-    }
+  for (let i = 0; i < Math.min(files.length, 10); i++) {
+    const file = files[i];
+    if (!file.type.match('image.*')) { if(typeof toast==='function') toast(`Skipped ${file.name}: not an image`,'warning'); continue; }
+    if (file.size > 5*1024*1024) { if(typeof toast==='function') toast(`Skipped ${file.name}: over 5 MB`,'warning'); continue; }
+    selectedImages.push(file);
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const idx = selectedImages.length - 1;
+      const div = document.createElement('div');
+      div.className = 'image-preview';
+      div.innerHTML = `<img src="${ev.target.result}" alt="Preview"><button type="button" class="preview-delete" onclick="removeImage(${idx})">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+      container.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  }
+  if (selectedImages.length > 0) {
+    container.style.display = 'grid';
+    if(typeof toast==='function') toast(`Selected ${selectedImages.length} image(s)`, 'success');
+  }
 }
 
 function removeImage(index) {
-    selectedImages.splice(index, 1);
-    updateImagePreviews();
+  selectedImages.splice(index, 1);
+  updateImagePreviews();
 }
 
 function updateImagePreviews() {
-    const previewsContainer = document.getElementById('imagePreviews');
-    previewsContainer.innerHTML = '';
-
-    if (selectedImages.length === 0) {
-        previewsContainer.classList.add('hidden');
-        return;
-    }
-
-    selectedImages.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.createElement('div');
-            preview.className = 'image-preview';
-            preview.innerHTML = `
-                <img src="${e.target.result}" alt="Preview">
-                <button type="button" onclick="removeImage(${index})" 
-                        class="delete-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            previewsContainer.appendChild(preview);
-        };
-        reader.readAsDataURL(file);
-    });
+  const container = document.getElementById('imagePreviews');
+  container.innerHTML = '';
+  if (!selectedImages.length) { container.style.display='none'; return; }
+  selectedImages.forEach((file, idx) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const div = document.createElement('div');
+      div.className = 'image-preview';
+      div.innerHTML = `<img src="${ev.target.result}" alt="Preview"><button type="button" class="preview-delete" onclick="removeImage(${idx})">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+      container.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-// Department selection handling
+/* ── Department select ── */
 document.getElementById('studentDepartment').addEventListener('change', function() {
-    const newDeptInput = document.getElementById('newDepartment');
-    if (this.value === 'other') {
-        newDeptInput.classList.remove('hidden');
-    } else {
-        newDeptInput.classList.add('hidden');
-        newDeptInput.value = '';
-    }
+  const nd = document.getElementById('newDepartment');
+  nd.style.display = this.value === 'other' ? 'block' : 'none';
+  if (this.value !== 'other') nd.value = '';
 });
 
-// Auto-submit search on change
+/* ── Filter form ── */
 document.querySelector('select[name="department"]').addEventListener('change', function() {
-    document.getElementById('filterForm').submit();
+  document.getElementById('filterForm').submit();
 });
 
-// Search input debounce
 let searchTimeout;
 document.querySelector('input[name="search"]').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        document.getElementById('filterForm').submit();
-    }, 500);
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
 });
 
-// Close modals on escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeStudentModal();
-        closeDetailsModal();
-    }
-});
-
-// Close modals on background click
-document.getElementById('studentModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeStudentModal();
-    }
-});
-
-document.getElementById('detailsModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeDetailsModal();
-    }
-});
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Students page loaded');
+/* ── Keyboard ── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeStudentModal(); closeDetailsModal(); }
 });
 </script>
 {% endblock %}

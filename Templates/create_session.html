@@ -1,186 +1,307 @@
 {% extends "base.html" %}
 {% set active_page = 'attendance' %}
-{% block title %}Create Session • AI Attendance{% endblock %}
+{% block title %}Create Session • Attendix{% endblock %}
+
+{% block head %}
+<style>
+/* ─── Local tokens ───────────────────────────────────────── */
+.input {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--haze);
+    outline: none;
+    transition: border-color .18s;
+    -webkit-appearance: none;
+    appearance: none;
+    color-scheme: dark;
+}
+.input::placeholder { color: rgba(83,118,146,.45); }
+.input:focus { border-color: rgba(179,205,228,.38); }
+select.input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23537692' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+.field-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--steel);
+    display: block;
+    margin-bottom: 8px;
+}
+
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 20px; border-radius: 8px;
+    font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer; text-decoration: none;
+    transition: opacity .18s, transform .18s; white-space: nowrap;
+    justify-content: center;
+}
+.btn:hover { opacity: .85; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary  { background: linear-gradient(135deg, var(--haze), var(--frost)); color: var(--abyss); }
+.btn-ghost    { background: transparent; border: 1px solid rgba(83,118,146,.24); color: var(--steel); }
+
+.sec-hd { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.sec-num { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--steel); opacity: .45; }
+.sec-title { font-size: 15px; font-weight: 500; letter-spacing: -.015em; color: var(--frost); }
+
+.glass-l2 {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+}
+
+/* Info list */
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 12px;
+    font-weight: 300;
+    color: var(--haze);
+    border-bottom: 1px solid rgba(179,205,228,.05);
+}
+.info-item:last-child { border-bottom: none; }
+.info-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--emerald);
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+/* Session item in recent list */
+.sess-item {
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid rgba(179,205,228,.07);
+    margin-bottom: 8px;
+    transition: background .18s;
+}
+.sess-item:hover { background: rgba(179,205,228,.06); }
+.sess-item:last-child { margin-bottom: 0; }
+.sess-top {
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 8px;
+    margin-bottom: 8px;
+}
+.sess-subject { font-size: 13px; font-weight: 400; color: var(--frost); }
+.sess-date {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--steel); letter-spacing: .06em;
+    padding: 3px 8px; border-radius: 100px;
+    background: rgba(83,118,146,.1);
+    border: 1px solid rgba(83,118,146,.2);
+    white-space: nowrap;
+}
+.sess-meta {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    font-size: 12px; color: var(--steel);
+}
+.sess-present { font-family: var(--font-mono); font-size: 12px; color: var(--emerald); }
+.sess-time {
+    font-family: var(--font-mono); font-size: 10px;
+    color: rgba(83,118,146,.55); margin-top: 6px;
+}
+
+svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <!-- Header with gradient -->
-    <div class="glass rounded-2xl p-6 mb-6 border border-gray-700/50"
-         style="background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(139,92,246,0.1)), radial-gradient(circle at 30% 30%, #0f172a, #1e293b);">
-        <h1 class="text-2xl font-bold gradient-text mb-2 flex items-center">
-            <i class="fas fa-calendar-plus mr-3 text-primary-400"></i>Create Attendance Session
-        </h1>
-        <p class="text-gray-400">Schedule a new attendance session for a class</p>
+<div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+
+  <!-- ── Page head ──────────────────────────────────────────── -->
+  <div style="padding-bottom:24px;border-bottom:1px solid var(--glass-border)">
+    <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--frost);display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+      Create Session
+    </h1>
+    <p style="font-size:15px;font-weight:300;color:var(--steel)">Schedule a new attendance session for a class</p>
+  </div>
+
+  <!-- ── Form panel ─────────────────────────────────────────── -->
+  <div class="glass-l2" style="padding:28px">
+    <div class="sec-hd">
+      <span class="sec-num">01</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span class="sec-title">Session Details</span>
     </div>
 
-    <!-- Session Form -->
-    <div class="glass rounded-2xl p-6 border border-gray-700/50">
-        <form method="POST" action="{{ url_for('create_session_page') }}" class="space-y-6">
-            <div class="grid md:grid-cols-2 gap-6">
-                <!-- Subject -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Subject *</label>
-                    <select name="subject_id" required 
-                            class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white
-                                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm">
-                        <option value="">Select Subject</option>
-                        {% for subject in subjects %}
-                        <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+    <form method="POST" action="{{ url_for('create_session_page') }}" id="sessionForm">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
 
-                <!-- Teacher -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Teacher *</label>
-                    <select name="teacher_id" required 
-                            class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white
-                                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm">
-                        {% for teacher in teachers %}
-                        <option value="{{ teacher.id }}" {% if teacher.id == session.user_id %}selected{% endif %}>
-                            {{ teacher.full_name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-6">
-                <!-- Date -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Date *</label>
-                    <input type="date" name="date" required 
-                           value="{{ now.strftime('%Y-%m-%d') }}"
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white
-                                  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm">
-                </div>
-
-                <!-- Start Time -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Start Time *</label>
-                    <input type="time" name="start_time" required 
-                           value="{{ now.strftime('%H:%M') }}"
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white
-                                  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm">
-                </div>
-
-                <!-- End Time -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">End Time *</label>
-                    <input type="time" name="end_time" required 
-                           value="{{ (now + timedelta(hours=1)).strftime('%H:%M') }}"
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white
-                                  focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent backdrop-blur-sm">
-                </div>
-            </div>
-
-            <!-- Session Info -->
-            <div class="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4">
-                <h3 class="text-sm font-medium text-gray-300 mb-3 flex items-center">
-                    <i class="fas fa-info-circle mr-2 text-primary-400"></i>Session Information
-                </h3>
-                <ul class="text-xs text-gray-500 space-y-2">
-                    <li class="flex items-start">
-                        <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
-                        <span>All students will be automatically marked as absent initially</span>
-                    </li>
-                    <li class="flex items-start">
-                        <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
-                        <span>Teachers can later mark attendance using face recognition</span>
-                    </li>
-                    <li class="flex items-start">
-                        <i class="fas fa-check-circle text-success mr-2 mt-0.5"></i>
-                        <span>After creation, you'll be redirected to the attendance view filtered to this session</span>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Form Actions -->
-            <div class="flex gap-4 pt-6 border-t border-gray-700">
-                <a href="{{ url_for('attendance') }}"
-                   class="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all hover:scale-105 text-center">
-                    <i class="fas fa-arrow-left mr-2"></i>Cancel
-                </a>
-                <button type="submit"
-                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-calendar-plus mr-2"></i>Create Session
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Recent Sessions -->
-    <div class="glass rounded-2xl p-6 mt-6 border border-gray-700/50">
-        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-            <i class="fas fa-history mr-2 text-primary-400"></i>Recent Sessions
-        </h3>
-        {% if recent_sessions %}
-        <div class="space-y-3">
-            {% for sess in recent_sessions %}
-            <div class="p-3 bg-gray-900/50 backdrop-blur-sm rounded-lg hover:bg-gray-900 transition-all border border-gray-700">
-                <div class="flex justify-between items-start mb-2">
-                    <h4 class="font-medium text-white">{{ sess.subject_name }}</h4>
-                    <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">{{ sess.date }}</span>
-                </div>
-                <div class="flex items-center justify-between text-sm">
-                    <div class="text-gray-400">
-                        <i class="fas fa-user-tie mr-1"></i>{{ sess.teacher_name }}
-                    </div>
-                    <div class="text-success">
-                        <i class="fas fa-user-check mr-1"></i>{{ sess.present_count }} present
-                    </div>
-                </div>
-                <div class="mt-2 text-xs text-gray-500">
-                    <i class="fas fa-clock mr-1"></i>{{ sess.start_time }} - {{ sess.end_time }}
-                </div>
-            </div>
+        <!-- Subject -->
+        <div>
+          <label class="field-label">Subject <span style="color:var(--alert)">*</span></label>
+          <select name="subject_id" required class="input">
+            <option value="">— Select subject —</option>
+            {% for subject in subjects %}
+            <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
             {% endfor %}
+          </select>
         </div>
-        {% else %}
-        <div class="text-center py-8">
-            <i class="fas fa-calendar text-gray-600 text-4xl mb-3"></i>
-            <p class="text-gray-400">No recent sessions</p>
-            <p class="text-sm text-gray-500 mt-1">Create your first session above</p>
+
+        <!-- Teacher -->
+        <div>
+          <label class="field-label">Teacher <span style="color:var(--alert)">*</span></label>
+          <select name="teacher_id" required class="input">
+            {% for teacher in teachers %}
+            <option value="{{ teacher.id }}" {% if teacher.id == session.user_id %}selected{% endif %}>
+              {{ teacher.full_name }}
+            </option>
+            {% endfor %}
+          </select>
         </div>
-        {% endif %}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+        <!-- Date -->
+        <div>
+          <label class="field-label">Date <span style="color:var(--alert)">*</span></label>
+          <input type="date" name="date" required value="{{ now.strftime('%Y-%m-%d') }}" class="input">
+        </div>
+
+        <!-- Start time -->
+        <div>
+          <label class="field-label">Start Time <span style="color:var(--alert)">*</span></label>
+          <input type="time" name="start_time" required value="{{ now.strftime('%H:%M') }}" class="input">
+        </div>
+
+        <!-- End time -->
+        <div>
+          <label class="field-label">End Time <span style="color:var(--alert)">*</span></label>
+          <input type="time" name="end_time" required value="{{ (now + timedelta(hours=1)).strftime('%H:%M') }}" class="input">
+        </div>
+      </div>
+
+      <!-- Info block -->
+      <div style="padding:16px;border-radius:8px;background:rgba(179,205,228,.03);border:1px solid rgba(179,205,228,.07);margin-bottom:24px">
+        <div style="font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:12px;opacity:.6">Notes</div>
+        <div class="info-item">
+          <div class="info-dot"></div>
+          <span>All students are marked absent by default when the session is created</span>
+        </div>
+        <div class="info-item">
+          <div class="info-dot"></div>
+          <span>Teachers can update attendance via face recognition on the Capture page</span>
+        </div>
+        <div class="info-item">
+          <div class="info-dot"></div>
+          <span>After creation you will be redirected to the attendance view for this session</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px;padding-top:20px;border-top:1px solid var(--glass-border)">
+        <a href="{{ url_for('attendance') }}" class="btn btn-ghost" style="flex:1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Cancel
+        </a>
+        <button type="submit" id="submitBtn" class="btn btn-primary" style="flex:1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+          Create Session
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Recent sessions ───────────────────────────────────── -->
+  <div class="glass-l2" style="padding:24px">
+    <div class="sec-hd">
+      <span class="sec-num">02</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="sec-title">Recent Sessions</span>
     </div>
+
+    {% if recent_sessions %}
+    <div>
+      {% for sess in recent_sessions %}
+      <div class="sess-item">
+        <div class="sess-top">
+          <span class="sess-subject">{{ sess.subject_name }}</span>
+          <span class="sess-date">{{ sess.date }}</span>
+        </div>
+        <div class="sess-meta">
+          <span style="display:flex;align-items:center;gap:6px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            {{ sess.teacher_name }}
+          </span>
+          <span class="sess-present">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+            {{ sess.present_count }} present
+          </span>
+        </div>
+        <div class="sess-time">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          {{ sess.start_time }} — {{ sess.end_time }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px 0">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.4"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <div style="font-size:13px;color:var(--steel)">No recent sessions</div>
+      <div style="font-size:12px;color:rgba(83,118,146,.5);margin-top:4px">Create your first session above</div>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const now = new Date();
+document.addEventListener('DOMContentLoaded', function () {
+    const now     = new Date();
     const endTime = new Date(now.getTime() + 60 * 60 * 1000);
-    
-    const formatTime = (date) => date.toTimeString().slice(0, 5);
-    
-    const dateInput = document.querySelector('input[name="date"]');
-    const startTimeInput = document.querySelector('input[name="start_time"]');
-    const endTimeInput = document.querySelector('input[name="end_time"]');
-    
-    if (!dateInput.value) dateInput.value = now.toISOString().slice(0, 10);
-    if (!startTimeInput.value) startTimeInput.value = formatTime(now);
-    if (!endTimeInput.value) endTimeInput.value = formatTime(endTime);
-    
-    const form = document.querySelector('form[action="{{ url_for("create_session_page") }}"]');
-    form.addEventListener('submit', function(e) {
-        const subject = this.querySelector('select[name="subject_id"]').value;
-        const date = this.querySelector('input[name="date"]').value;
+    const fmt     = d => d.toTimeString().slice(0, 5);
+
+    const dateIn  = document.querySelector('input[name="date"]');
+    const startIn = document.querySelector('input[name="start_time"]');
+    const endIn   = document.querySelector('input[name="end_time"]');
+
+    if (!dateIn.value)  dateIn.value  = now.toISOString().slice(0, 10);
+    if (!startIn.value) startIn.value = fmt(now);
+    if (!endIn.value)   endIn.value   = fmt(endTime);
+
+    document.getElementById('sessionForm').addEventListener('submit', function (e) {
+        const subject   = this.querySelector('select[name="subject_id"]').value;
+        const date      = this.querySelector('input[name="date"]').value;
         const startTime = this.querySelector('input[name="start_time"]').value;
-        const endTime = this.querySelector('input[name="end_time"]').value;
-        
+        const endTime   = this.querySelector('input[name="end_time"]').value;
+
         if (!subject || !date || !startTime || !endTime) {
             e.preventDefault();
-            toast('Please fill in all required fields', 'error');
+            toast('Please fill in all required fields.', 'error');
             return;
         }
         if (startTime >= endTime) {
             e.preventDefault();
-            toast('End time must be after start time', 'error');
+            toast('End time must be after start time.', 'error');
             return;
         }
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating Session...';
+
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = `<svg style="animation:spin .8s linear infinite;width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Creating…`;
     });
 });
 </script>

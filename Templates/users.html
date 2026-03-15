@@ -1,324 +1,904 @@
 {% extends "base.html" %}
 {% set active_page = 'users' %}
-{% block title %}User Management • AI Attendance{% endblock %}
+{% block title %}User Management • Attendix{% endblock %}
 
 {% block head %}
-
 <style>
-    /* Header with gradient and subtle pattern */
-    .users-header {
-        background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(139,92,246,0.1)),
-                    radial-gradient(circle at 30% 30%, #0f172a, #1e293b);
-        position: relative;
-        overflow: hidden;
-    }
-    .users-header::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' stroke='%230ea5e9' stroke-width='0.5' stroke-opacity='0.1'%3E%3Cpath d='M0 0h60v60H0z'/%3E%3C/g%3E%3C/svg%3E");
-        pointer-events: none;
-    }
+  /* ─── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  -webkit-font-smoothing: antialiased;
+
+  /* ─── Design Tokens ─────────────────────────────────────────── */
+  :root {
+    --abyss:        #001b2e;
+    --slate:        #1d3f58;
+    --steel:        #537692;
+    --haze:         #b3cde4;
+    --frost:        #eef3f9;
+    --emerald:      #2dd4bf;
+    --alert:        #f87171;
+    --amber:        #fbbf24;
+    --lilac:        #a78bfa;
+    --glass-bg:     rgba(179,205,228,.06);
+    --glass-border: rgba(179,205,228,.14);
+    --glass-hover:  rgba(179,205,228,.10);
+    --font-sans:    'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-mono:    'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--abyss);
+    color: var(--haze);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Background Orbs ───────────────────────────────────────── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(90px);
+  }
+  .orb-1 {
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(29,63,88,.7), transparent 70%);
+    top: -250px; left: -150px;
+  }
+  .orb-2 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(83,118,146,.4), transparent 70%);
+    top: 50%; right: -200px;
+  }
+  .orb-3 {
+    width: 450px; height: 450px;
+    background: radial-gradient(circle, rgba(29,63,88,.5), transparent 70%);
+    bottom: -100px; left: 25%;
+  }
+
+  /* ─── Page Wrapper ──────────────────────────────────────────── */
+  .page-content {
+    position: relative;
+    z-index: 1;
+    padding: 0 52px 80px;
+  }
+
+  /* ─── Glass Levels ──────────────────────────────────────────── */
+  .glass-l2 {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+  }
+
+  /* ─── Page Header ───────────────────────────────────────────── */
+  .page-header {
+    padding: 32px 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 32px;
+  }
+
+  .page-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .section-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--steel);
+    opacity: .55;
+    margin-bottom: 4px;
+  }
+
+  .page-title {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--frost);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .page-title svg {
+    color: var(--haze);
+    opacity: .65;
+  }
+
+  .page-subtitle {
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--steel);
+    line-height: 1.75;
+    margin-top: 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* ─── Buttons ───────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity .15s ease, transform .1s ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn:hover { opacity: .88; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn svg { flex-shrink: 0; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--haze), var(--frost));
+    color: var(--abyss);
+  }
+
+  .btn-danger {
+    background: rgba(248,113,113,.12);
+    color: var(--alert);
+    border: 1px solid rgba(248,113,113,.24);
+  }
+  .btn-danger:hover { background: rgba(248,113,113,.18); }
+
+  .btn-ghost-delete {
+    background: rgba(248,113,113,.08);
+    color: var(--alert);
+    border: 1px solid rgba(248,113,113,.18);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .btn-ghost-delete:hover { background: rgba(248,113,113,.15); }
+
+  .btn-ghost-warn {
+    background: rgba(251,191,36,.07);
+    color: var(--amber);
+    border: 1px solid rgba(251,191,36,.22);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .btn-ghost-warn:hover { background: rgba(251,191,36,.13); }
+
+  .btn-disabled {
+    background: rgba(179,205,228,.05);
+    color: var(--steel);
+    border: 1px solid var(--glass-border);
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: default;
+  }
+  .btn-disabled:hover { opacity: 1; transform: none; }
+
+  .btn-secondary {
+    background: var(--glass-bg);
+    color: var(--haze);
+    border: 1px solid var(--glass-border);
+  }
+  .btn-secondary:hover { background: var(--glass-hover); }
+
+  /* ─── Main Grid ─────────────────────────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 1024px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─── User Table Card ───────────────────────────────────────── */
+  .card-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .card-title {
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--frost);
+  }
+
+  .card-subtitle {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--steel);
+    margin-top: 2px;
+  }
+
+  .role-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+    background: rgba(179,205,228,.08);
+    border: 1px solid var(--glass-border);
+    color: var(--haze);
+  }
+
+  /* ─── Table ─────────────────────────────────────────────────── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table thead tr {
+    background: rgba(0,27,46,.45);
+  }
+
+  .data-table th {
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--steel);
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 14px 16px;
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--haze);
+    border-top: 1px solid rgba(179,205,228,.06);
+    vertical-align: middle;
+  }
+
+  .data-table tbody tr:hover td {
+    background: rgba(179,205,228,.03);
+  }
+
+  .td-id {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--steel);
+  }
+
+  .td-username {
+    font-weight: 400;
+    color: var(--frost);
+  }
+
+  .td-actions {
+    white-space: nowrap;
+  }
+
+  /* ─── Role Pills ─────────────────────────────────────────────── */
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .04em;
+  }
+
+  .pill-admin {
+    color: var(--lilac);
+    background: rgba(167,139,250,.08);
+    border: 1px solid rgba(167,139,250,.24);
+  }
+
+  .pill-teacher {
+    color: var(--haze);
+    background: rgba(83,118,146,.15);
+    border: 1px solid rgba(83,118,146,.30);
+  }
+
+  .pill-student {
+    color: var(--emerald);
+    background: rgba(45,212,191,.07);
+    border: 1px solid rgba(45,212,191,.22);
+  }
+
+  /* ─── Empty State ───────────────────────────────────────────── */
+  .empty-state {
+    padding: 64px 32px;
+    text-align: center;
+  }
+
+  .empty-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: rgba(179,205,228,.06);
+    border: 1px solid var(--glass-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    color: var(--steel);
+  }
+
+  .empty-title {
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--frost);
+    margin-bottom: 8px;
+  }
+
+  .empty-desc {
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--steel);
+    margin-bottom: 24px;
+  }
+
+  /* ─── Sidebar Column ─────────────────────────────────────────── */
+  .sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ─── Add User Form ─────────────────────────────────────────── */
+  .form-card {
+    padding: 24px;
+  }
+
+  .form-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--frost);
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--steel);
+    margin-bottom: 8px;
+  }
+
+  .form-label .required {
+    color: var(--alert);
+    margin-left: 2px;
+  }
+
+  .form-input,
+  .form-select {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--haze);
+    outline: none;
+    transition: border-color .15s ease;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .form-input::placeholder {
+    color: rgba(83,118,146,.45);
+  }
+
+  .form-input:focus,
+  .form-select:focus {
+    border-color: rgba(179,205,228,.38);
+    background: rgba(179,205,228,.08);
+  }
+
+  .form-select option {
+    background: var(--slate);
+    color: var(--haze);
+  }
+
+  .form-hint {
+    font-size: 11px;
+    color: var(--steel);
+    margin-top: 5px;
+    font-weight: 400;
+  }
+
+  .input-wrapper {
+    position: relative;
+  }
+
+  .input-suffix-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--steel);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    transition: color .15s;
+  }
+  .input-suffix-btn:hover { color: var(--haze); }
+
+  .form-input.has-suffix { padding-right: 40px; }
+
+  .btn-submit {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  /* ─── Role Info Card ─────────────────────────────────────────── */
+  .role-info-card {
+    padding: 24px;
+  }
+
+  .role-info-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--frost);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .role-info-title svg { color: var(--steel); }
+
+  .role-item {
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(0,27,46,.35);
+    border: 1px solid rgba(179,205,228,.07);
+    margin-bottom: 10px;
+  }
+  .role-item:last-child { margin-bottom: 0; }
+
+  .role-item-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .role-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .role-icon-admin   { background: rgba(167,139,250,.12); color: var(--lilac); }
+  .role-icon-teacher { background: rgba(83,118,146,.18);  color: var(--haze);  }
+  .role-icon-student { background: rgba(45,212,191,.10);  color: var(--emerald); }
+
+  .role-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--frost);
+  }
+
+  .role-desc {
+    font-size: 11px;
+    color: var(--steel);
+    margin-top: 1px;
+  }
+
+  .role-perms {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .role-perms li {
+    font-size: 12px;
+    font-weight: 300;
+    color: var(--steel);
+    padding-left: 14px;
+    position: relative;
+  }
+
+  .role-perms li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 7px;
+    width: 4px;
+    height: 1px;
+    background: var(--steel);
+    opacity: .5;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header with gradient -->
-    <div class="users-header glass rounded-2xl p-6 border border-gray-700/50">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-            <div>
-                <h1 class="text-2xl font-bold gradient-text mb-2 flex items-center">
-                    <i class="fas fa-users-cog mr-3 text-primary-400"></i>User Management
-                </h1>
-                <p class="text-gray-400">Manage system users and permissions</p>
-            </div>
-            <button onclick="showAddUserModal()"
-                    class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2">
-                <i class="fas fa-user-plus"></i>Add User
-            </button>
-        </div>
-    </div>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-        <div>
-            <h1 class="text-2xl font-bold gradient-text mb-2 flex items-center">
-                <i class="fas fa-users-cog mr-3 text-primary-400"></i>User Management
-            </h1>
-            <p class="text-gray-400">Manage system users and permissions</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <!-- New Reset Attendance Button -->
-            <form action="{{ url_for('reset_attendance') }}" method="POST" 
-                  onsubmit="return confirm('⚠️ DANGER: This will delete ALL sessions and attendance records.\\n\\nStudents, subjects, and users will remain.\\n\\nAre you absolutely sure?');">
-                <button type="submit" 
-                        class="px-4 py-2.5 bg-danger-700 hover:bg-danger-800 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-trash-alt"></i>Reset Attendance
-                </button>
-            </form>
-            <button onclick="showAddUserModal()"
-                    class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2">
-                <i class="fas fa-user-plus"></i>Add User
-            </button>
-        </div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- User List -->
-        <div class="lg:col-span-2">
-            <div class="glass rounded-2xl overflow-hidden border border-gray-700/50">
-                <div class="p-6 border-b border-gray-700">
-                    <div class="flex items-center justify-between mb-2">
-                        <div>
-                            <h2 class="text-xl font-semibold text-white">All Users</h2>
-                            <p class="text-sm text-gray-400">{{ users|length }} users in system</p>
-                        </div>
-                        <span class="px-3 py-1 bg-gray-700 rounded-full text-sm text-gray-300">{{ session.user_role|title }}</span>
-                    </div>
-                </div>
+<!-- Background orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
 
-                <div class="overflow-x-auto">
-                    {% if users %}
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gray-900/70 backdrop-blur-sm">
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">ID</th>
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">Username</th>
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">Full Name</th>
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">Role</th>
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">Department</th>
-                                <th class="p-4 text-left text-sm font-medium text-gray-300">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user in users %}
-                            <tr class="border-t border-gray-700 hover:bg-gray-900/50 transition-colors">
-                                <td class="p-4 text-gray-400 text-sm">{{ user.id }}</td>
-                                <!-- Username column - now only the username -->
-                                <td class="p-4 text-gray-300">{{ user.username }}</td>
-                                <td class="p-4 text-gray-300">{{ user.full_name or '—' }}</td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-medium 
-                                        {% if user.role == 'admin' %}bg-purple-900/30 text-purple-300
-                                        {% elif user.role == 'teacher' %}bg-blue-900/30 text-blue-300
-                                        {% else %}bg-green-900/30 text-green-300{% endif %}">
-                                        {{ user.role|title }}
-                                    </span>
-                                </td>
-                                <td class="p-4 text-gray-300">{{ user.department or '—' }}</td>
-                                <!-- Actions column - proper delete/force buttons -->
-                                <td class="p-4">
-                                    {% if user.id != session.user_id %}
-                                        <div class="flex items-center gap-2">
-                                            <!-- Regular delete button -->
-                                            <form action="{{ url_for('delete_user', user_id=user.id) }}" 
-                                                  method="POST" 
-                                                  onsubmit="return confirm('Delete user \"{{ user.username }}\"? This will fail if they have sessions.')"
-                                                  class="inline">
-                                                <input type="hidden" name="force" value="0">
-                                                <button type="submit" 
-                                                        class="px-3 py-1.5 bg-danger-600 hover:bg-danger-700 text-white text-xs font-medium rounded-lg transition-all hover:scale-105">
-                                                    <i class="fas fa-trash mr-1"></i>Delete
-                                                </button>
-                                            </form>
-                                            
-                                            <!-- Force delete button – only for teachers -->
-                                            {% if user.role == 'teacher' %}
-                                                <form action="{{ url_for('delete_user', user_id=user.id) }}" 
-                                                      method="POST" 
-                                                      onsubmit="return confirm('Force delete teacher \"{{ user.username }}\"? This will delete ALL their sessions and attendance records. Continue?')"
-                                                      class="inline">
-                                                    <input type="hidden" name="force" value="1">
-                                                    <button type="submit" 
-                                                            class="px-3 py-1.5 bg-warning-600 hover:bg-warning-700 text-white text-xs font-medium rounded-lg transition-all hover:scale-105">
-                                                        <i class="fas fa-exclamation-triangle mr-1"></i>Force
-                                                    </button>
-                                                </form>
-                                            {% endif %}
-                                        </div>
-                                    {% else %}
-                                        <span class="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs font-medium rounded-lg">
-                                            <i class="fas fa-user mr-1"></i>Current User
-                                        </span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="text-center py-12">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-700 mb-4">
-                            <i class="fas fa-users text-gray-500 text-2xl"></i>
-                        </div>
-                        <h3 class="text-lg font-medium text-white mb-2">No Users Found</h3>
-                        <p class="text-gray-400 mb-6">Add users to manage the system.</p>
-                        <button onclick="showAddUserModal()"
-                                class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                            <i class="fas fa-user-plus"></i> Add First User
-                        </button>
-                    </div>
+<div class="page-content">
+
+  <!-- ── Page Header (single, merged) ─────────────────────────── -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="section-eyebrow">01 — System</div>
+      <h1 class="page-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        User Management
+      </h1>
+      <p class="page-subtitle">Manage system users and permissions</p>
+    </div>
+
+    <div class="header-actions">
+      <!-- Reset Attendance -->
+      <form action="{{ url_for('reset_attendance') }}" method="POST"
+            onsubmit="return confirm('DANGER: This will delete ALL sessions and attendance records.\n\nStudents, subjects, and users will remain.\n\nAre you absolutely sure?');">
+        <button type="submit" class="btn btn-danger">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+          Reset Attendance
+        </button>
+      </form>
+
+      <!-- Add User -->
+      <button onclick="showAddUserForm()" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+        Add User
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main Grid ─────────────────────────────────────────────── -->
+  <div class="main-grid">
+
+    <!-- ── User Table ─────────────────────────────────────────── -->
+    <div class="glass-l2" style="overflow: hidden;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">All Users</div>
+          <div class="card-subtitle">{{ users|length }} users in system</div>
+        </div>
+        <span class="role-badge">{{ session.user_role|title }}</span>
+      </div>
+
+      {% if users %}
+      <div style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Department</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td class="td-id">#{{ user.id }}</td>
+              <td class="td-username">{{ user.username }}</td>
+              <td>{{ user.full_name or '—' }}</td>
+              <td>
+                {% if user.role == 'admin' %}
+                  <span class="pill pill-admin">Admin</span>
+                {% elif user.role == 'teacher' %}
+                  <span class="pill pill-teacher">Teacher</span>
+                {% else %}
+                  <span class="pill pill-student">Student</span>
+                {% endif %}
+              </td>
+              <td>{{ user.department or '—' }}</td>
+              <td class="td-actions">
+                {% if user.id != session.user_id %}
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <!-- Regular delete -->
+                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST"
+                          onsubmit="return confirm('Delete user &quot;{{ user.username }}&quot;? This will fail if they have sessions.')"
+                          style="display:inline;">
+                      <input type="hidden" name="force" value="0">
+                      <button type="submit" class="btn btn-ghost-delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                        Delete
+                      </button>
+                    </form>
+
+                    {% if user.role == 'teacher' %}
+                    <!-- Force delete -->
+                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST"
+                          onsubmit="return confirm('Force delete teacher &quot;{{ user.username }}&quot;? This will delete ALL their sessions and attendance records. Continue?')"
+                          style="display:inline;">
+                      <input type="hidden" name="force" value="1">
+                      <button type="submit" class="btn btn-ghost-warn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Force
+                      </button>
+                    </form>
                     {% endif %}
-                </div>
-            </div>
+                  </div>
+                {% else %}
+                  <span class="btn btn-disabled" style="display:inline-flex;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    You
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
         </div>
-
-        <!-- Add User Form -->
-        <div>
-            <div class="glass rounded-2xl p-6 border border-gray-700/50">
-                <h2 class="text-lg font-semibold text-white mb-4">Add New User</h2>
-                <form method="POST" action="{{ url_for('add_user') }}" class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Username *</label>
-                        <input type="text" name="username" required
-                               class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm"
-                               placeholder="Enter username">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Password *</label>
-                        <div class="relative">
-                            <input type="password" name="password" required id="userPassword"
-                                   class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm pr-10"
-                                   placeholder="Enter password">
-                            <button type="button" onclick="togglePassword('userPassword')"
-                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300">
-                                <i class="fas fa-eye" id="passwordToggleIcon"></i>
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Full Name</label>
-                        <input type="text" name="full_name"
-                               class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm"
-                               placeholder="Enter full name">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Email</label>
-                        <input type="email" name="email"
-                               class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm"
-                               placeholder="Enter email address">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Role *</label>
-                        <select name="role" required 
-                                class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm">
-                            <option value="">Select Role</option>
-                            <option value="admin">Administrator</option>
-                            <option value="teacher">Teacher</option>
-                            <option value="student">Student</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-300 mb-2">Department</label>
-                        <input type="text" name="department"
-                               class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white backdrop-blur-sm"
-                               placeholder="Enter department">
-                    </div>
-                    <button type="submit" 
-                            class="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                        <i class="fas fa-user-plus mr-2"></i>Add User
-                    </button>
-                </form>
-            </div>
-
-            <!-- Role Information -->
-            <div class="glass rounded-2xl p-6 mt-6 border border-gray-700/50">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-info-circle mr-2 text-primary-400"></i>Role Information
-                </h3>
-                <div class="space-y-4">
-                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-purple-900/30 flex items-center justify-center">
-                                <i class="fas fa-crown text-purple-400"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white">Administrator</h4>
-                                <p class="text-xs text-gray-400">Full system access</p>
-                            </div>
-                        </div>
-                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
-                            <li>• Manage all users</li>
-                            <li>• Create/edit/delete subjects</li>
-                            <li>• Full student management</li>
-                            <li>• Generate face encodings</li>
-                        </ul>
-                    </div>
-                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center">
-                                <i class="fas fa-chalkboard-teacher text-blue-400"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white">Teacher</h4>
-                                <p class="text-xs text-gray-400">Class management access</p>
-                            </div>
-                        </div>
-                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
-                            <li>• Take attendance</li>
-                            <li>• View student attendance</li>
-                            <li>• Create sessions</li>
-                            <li>• Limited student management</li>
-                        </ul>
-                    </div>
-                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
-                                <i class="fas fa-user-graduate text-green-400"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white">Student</h4>
-                                <p class="text-xs text-gray-400">View-only access</p>
-                            </div>
-                        </div>
-                        <ul class="text-xs text-gray-500 space-y-1 pl-11">
-                            <li>• View own attendance</li>
-                            <li>• View session schedules</li>
-                            <li>• No administrative access</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div class="empty-title">No users found</div>
+        <p class="empty-desc">Add the first user to get started.</p>
+        <button onclick="showAddUserForm()" class="btn btn-primary" style="margin: 0 auto;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+          </svg>
+          Add First User
+        </button>
+      </div>
+      {% endif %}
     </div>
-</div>
+
+    <!-- ── Right Sidebar ──────────────────────────────────────── -->
+    <div class="sidebar-col">
+
+      <!-- Add User Form -->
+      <div class="glass-l2 form-card" id="addUserForm">
+        <div class="form-title">Add New User</div>
+        <form method="POST" action="{{ url_for('add_user') }}" id="addUserFormEl">
+          <div class="form-group">
+            <label class="form-label">Username <span class="required">*</span></label>
+            <input type="text" name="username" required class="form-input" placeholder="e.g. jsmith">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password <span class="required">*</span></label>
+            <div class="input-wrapper">
+              <input type="password" name="password" required id="userPassword"
+                     class="form-input has-suffix" placeholder="Min. 6 characters">
+              <button type="button" onclick="togglePassword('userPassword')" class="input-suffix-btn" aria-label="Toggle password visibility">
+                <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+            <div class="form-hint">Minimum 6 characters</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="full_name" class="form-input" placeholder="e.g. John Smith">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-input" placeholder="e.g. j.smith@org.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Role <span class="required">*</span></label>
+            <select name="role" required class="form-select">
+              <option value="">Select role</option>
+              <option value="admin">Administrator</option>
+              <option value="teacher">Teacher</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px;">
+            <label class="form-label">Department</label>
+            <input type="text" name="department" class="form-input" placeholder="e.g. Computer Science">
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-submit" id="addUserSubmitBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+            </svg>
+            Add User
+          </button>
+        </form>
+      </div>
+
+      <!-- Role Information -->
+      <div class="glass-l2 role-info-card">
+        <div class="role-info-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          Role Permissions
+        </div>
+
+        <!-- Admin -->
+        <div class="role-item">
+          <div class="role-item-header">
+            <div class="role-icon role-icon-admin">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div>
+              <div class="role-name">Administrator</div>
+              <div class="role-desc">Full system access</div>
+            </div>
+          </div>
+          <ul class="role-perms">
+            <li>Manage all users</li>
+            <li>Create, edit, delete subjects</li>
+            <li>Full student management</li>
+            <li>Generate face encodings</li>
+          </ul>
+        </div>
+
+        <!-- Teacher -->
+        <div class="role-item">
+          <div class="role-item-header">
+            <div class="role-icon role-icon-teacher">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="role-name">Teacher</div>
+              <div class="role-desc">Class management access</div>
+            </div>
+          </div>
+          <ul class="role-perms">
+            <li>Take attendance</li>
+            <li>View student attendance</li>
+            <li>Create sessions</li>
+            <li>Limited student management</li>
+          </ul>
+        </div>
+
+        <!-- Student -->
+        <div class="role-item">
+          <div class="role-item-header">
+            <div class="role-icon role-icon-student">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+              </svg>
+            </div>
+            <div>
+              <div class="role-name">Student</div>
+              <div class="role-desc">View-only access</div>
+            </div>
+          </div>
+          <ul class="role-perms">
+            <li>View own attendance</li>
+            <li>View session schedules</li>
+            <li>No administrative access</li>
+          </ul>
+        </div>
+      </div>
+
+    </div><!-- /sidebar-col -->
+  </div><!-- /main-grid -->
+</div><!-- /page-content -->
 
 <script>
-function togglePassword(inputId) {
-    const passwordInput = document.getElementById(inputId);
-    const toggleIcon = document.getElementById('passwordToggleIcon');
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.classList.remove('fa-eye');
-        toggleIcon.classList.add('fa-eye-slash');
+  function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon  = document.getElementById('eyeIcon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
     } else {
-        passwordInput.type = 'password';
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
+      input.type = 'password';
+      icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
     }
-}
-function showAddUserModal() {
-    document.querySelector('form[action="{{ url_for("add_user") }}"]').scrollIntoView({ behavior: 'smooth' });
-    const form = document.querySelector('form[action="{{ url_for("add_user") }}"]');
-    form.classList.add('ring-2', 'ring-primary-500');
-    setTimeout(() => form.classList.remove('ring-2', 'ring-primary-500'), 2000);
-}
-document.querySelector('form[action="{{ url_for("add_user") }}"]').addEventListener('submit', function(e) {
+  }
+
+  function showAddUserForm() {
+    const form = document.getElementById('addUserForm');
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.style.transition = 'border-color .3s ease';
+    form.style.borderColor = 'rgba(179,205,228,.42)';
+    setTimeout(() => { form.style.borderColor = ''; }, 1800);
+  }
+
+  document.getElementById('addUserFormEl').addEventListener('submit', function(e) {
     const username = this.querySelector('input[name="username"]').value.trim();
     const password = this.querySelector('input[name="password"]').value;
-    const role = this.querySelector('select[name="role"]').value;
+    const role     = this.querySelector('select[name="role"]').value;
+
     if (!username || !password || !role) {
-        e.preventDefault();
-        toast('Please fill in all required fields', 'error');
-        return;
+      e.preventDefault();
+      if (typeof toast === 'function') toast('Please fill in all required fields', 'error');
+      return;
     }
     if (password.length < 6) {
-        e.preventDefault();
-        toast('Password must be at least 6 characters long', 'error');
-        return;
+      e.preventDefault();
+      if (typeof toast === 'function') toast('Password must be at least 6 characters', 'error');
+      return;
     }
-    const submitBtn = this.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding User...';
-});
+
+    const btn = document.getElementById('addUserSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+           style="animation: spin .7s linear infinite;">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+      </svg>
+      Adding...`;
+  });
 </script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}

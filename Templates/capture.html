@@ -1,41 +1,172 @@
 {% extends "base.html" %}
 {% set active_page = 'capture' %}
-{% block title %}Capture Faces • AI Attendance{% endblock %}
+{% block title %}Capture • Attendix{% endblock %}
 
 {% block head %}
 <style>
-    /* Your existing styles – unchanged */
-    .capture-container {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-}
+/* ─── Camera frame ───────────────────────────────────────── */
 .camera-frame {
     position: relative;
-    border: 3px solid #0ea5e9; /* original blue */
-    border-radius: 1rem;
+    border: 1px solid rgba(45,212,191,.25);
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 0 30px rgba(14,165,233,0.3);
-    min-height: 300px;
     background: #000;
+    min-height: 300px;
+    box-shadow: 0 0 40px rgba(45,212,191,.08);
 }
+
+/* Face guide overlay */
 .face-guide {
     position: absolute;
-    top: 50%;
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: 200px;
-    height: 280px;
-    border: 2px dashed rgba(14,165,233,0.5);
+    width: 180px; height: 250px;
+    border: 1.5px dashed rgba(45,212,191,.4);
     border-radius: 10px;
     pointer-events: none;
-    animation: pulse 2s infinite;
+    animation: guide-pulse 2.5s ease-in-out infinite;
 }
-@keyframes pulse {
-    0%, 100% { border-color: rgba(14,165,233,0.5); }
-    50% { border-color: rgba(14,165,233,0.8); }
+@keyframes guide-pulse {
+    0%, 100% { border-color: rgba(45,212,191,.3); }
+    50%       { border-color: rgba(45,212,191,.7); }
 }
+
+/* Scanning line */
+.scanning-line {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--emerald), transparent);
+    animation: scan-line 2.4s linear infinite;
+    z-index: 5;
+    opacity: 0;
+}
+@keyframes scan-line {
+    0%   { top: 0;    opacity: 0; }
+    8%   { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+#video {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    background: #000;
+}
+
+/* Fullscreen overlay buttons */
+.fullscreen-exit-btn,
+.fullscreen-capture-btn { display: none; z-index: 100; cursor: pointer; border: none; }
+
+.fullscreen-exit-btn {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(0,0,0,.7);
+    border: 1px solid rgba(179,205,228,.2);
+    color: var(--haze);
+    border-radius: 50%; width: 36px; height: 36px;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .18s;
+}
+.fullscreen-exit-btn:hover { background: rgba(179,205,228,.15); }
+
+.fullscreen-capture-btn {
+    position: absolute; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--haze), var(--frost));
+    color: var(--abyss);
+    border-radius: 100px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    transition: opacity .18s;
+}
+.fullscreen-capture-btn:hover { opacity: .85; }
+
+.camera-frame:fullscreen .fullscreen-exit-btn,
+.camera-frame:fullscreen .fullscreen-capture-btn,
+.camera-frame:-webkit-full-screen .fullscreen-exit-btn,
+.camera-frame:-webkit-full-screen .fullscreen-capture-btn,
+.camera-frame:-moz-full-screen .fullscreen-exit-btn,
+.camera-frame:-moz-full-screen .fullscreen-capture-btn {
+    display: flex !important;
+}
+
+/* ─── Mode tabs ──────────────────────────────────────────── */
+.mode-tab {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--steel);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .18s, color .18s, border-color .18s;
+    font-family: var(--font-ui);
+}
+.mode-tab svg { width: 14px; height: 14px; stroke-width: 1.5; }
+.mode-tab.active-single {
+    background: rgba(45,212,191,.08);
+    border-color: rgba(45,212,191,.25);
+    color: var(--emerald);
+}
+.mode-tab.active-class {
+    background: rgba(167,139,250,.08);
+    border-color: rgba(167,139,250,.25);
+    color: var(--lilac);
+}
+
+/* ─── Range slider ───────────────────────────────────────── */
+input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 3px;
+    background: rgba(83,118,146,.25);
+    border-radius: 100px;
+    outline: none;
+    cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--emerald);
+    border: 2px solid var(--abyss);
+    box-shadow: 0 0 6px rgba(45,212,191,.4);
+}
+input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--emerald);
+    border: 2px solid var(--abyss);
+}
+
+/* ─── Upload dropzone ────────────────────────────────────── */
+.upload-dropzone {
+    border: 1.5px dashed rgba(83,118,146,.35);
+    border-radius: 12px;
+    background: rgba(179,205,228,.02);
+    transition: border-color .2s, background .2s;
+    cursor: pointer;
+    padding: 32px 16px;
+    text-align: center;
+}
+.upload-dropzone:hover,
+.upload-dropzone.dragover {
+    border-color: var(--emerald);
+    background: rgba(45,212,191,.04);
+}
+
+/* ─── Preview grid ───────────────────────────────────────── */
 .preview-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
     gap: 8px;
 }
 .preview-item {
@@ -43,1488 +174,1123 @@
     aspect-ratio: 1;
     border-radius: 8px;
     overflow: hidden;
-    background: #1e293b;
-    transition: all 0.3s;
-    border: 2px solid transparent;
+    background: rgba(179,205,228,.04);
+    border: 1px solid var(--glass-border);
+    transition: border-color .18s;
 }
-.preview-item:hover {
-    transform: scale(1.05);
-    border-color: #0ea5e9;
-    box-shadow: 0 0 15px #0ea5e9;
-}
-.preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+.preview-item:hover { border-color: var(--emerald); }
+.preview-item img { width: 100%; height: 100%; object-fit: cover; }
 .preview-item .delete-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
-    width: 20px;
-    height: 20px;
-    background: rgba(239, 68, 68, 0.9);
+    position: absolute; top: 3px; right: 3px;
+    opacity: 0; transition: opacity .18s;
+    width: 18px; height: 18px;
+    background: rgba(248,113,113,.85);
     border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border: none;
+}
+.preview-item:hover .delete-btn { opacity: 1; }
+.preview-item .delete-btn svg { width: 9px; height: 9px; color: white; }
+
+/* ─── Status panel ───────────────────────────────────────── */
+.status-panel {
+    padding: 16px;
+    border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid var(--glass-border);
+}
+.progress-track {
+    height: 2px;
+    background: rgba(83,118,146,.2);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--emerald);
+    border-radius: 100px;
+    transition: width .3s;
+}
+
+/* ─── Stat row ───────────────────────────────────────────── */
+.stat-row {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(179,205,228,.06);
 }
-.preview-item:hover .delete-btn {
-    opacity: 1;
+.stat-row:last-child { border-bottom: none; }
+.stat-row .key { font-size: 12px; color: var(--steel); }
+.stat-row .val { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--frost); }
+
+/* ─── System status indicator ────────────────────────────── */
+.sys-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 12px;
 }
-.upload-dropzone {
-    border: 3px dashed #475569;
-    background: rgba(30, 41, 59, 0.3);
-    transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-}
-.upload-dropzone.dragover {
-    border-color: #0ea5e9;
-    background: rgba(14,165,233,0.1);
-    transform: scale(1.02);
-}
-.stats-card {
-    background: rgba(30, 41, 59, 0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-.status-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
+.sys-row .sys-key { color: var(--haze); font-weight: 300; }
+.sys-dot {
+    width: 7px; height: 7px;
     border-radius: 50%;
+    display: inline-block;
     margin-right: 6px;
 }
-.status-indicator.inactive {
-    background-color: #ef4444;
+.sys-ok   { color: var(--emerald); }
+.sys-warn { color: var(--amber); }
+.sys-err  { color: var(--alert); }
+.sys-dot.ok   { background: var(--emerald); box-shadow: 0 0 6px rgba(45,212,191,.5); }
+.sys-dot.warn { background: var(--amber); }
+.sys-dot.err  { background: var(--alert); }
+
+/* ─── Camera controls overlay ────────────────────────────── */
+.cam-overlay-top {
+    position: absolute; top: 12px; left: 12px;
+    display: flex; gap: 6px; z-index: 10;
 }
-.status-indicator.active {
-    background-color: #10b981;
-    box-shadow: 0 0 10px #10b981;
+.cam-overlay-br {
+    position: absolute; bottom: 12px; right: 12px;
+    display: flex; gap: 6px; z-index: 10;
 }
-.glass-btn {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.3s;
+.cam-btn {
+    padding: 6px;
+    border-radius: 6px;
+    background: rgba(0,27,46,.65);
+    border: 1px solid rgba(179,205,228,.15);
+    color: var(--haze);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .18s;
+    backdrop-filter: blur(6px);
 }
-.glass-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px -5px rgba(0,0,0,0.5);
+.cam-btn:hover { background: rgba(179,205,228,.12); }
+.cam-btn svg { width: 14px; height: 14px; stroke-width: 1.5; }
+.cam-count-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(0,27,46,.65);
+    border: 1px solid rgba(179,205,228,.15);
+    backdrop-filter: blur(6px);
 }
 
-/* New scanning line */
-.scanning-line {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #0ea5e9, #8b5cf6, transparent);
-    animation: scan 2s linear infinite;
-    z-index: 5;
-}
-@keyframes scan {
-    0% { top: 0; opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { top: 100%; opacity: 0; }
-}
-
-/* Updated header – no stock image */
-.capture-header {
-    background: linear-gradient(135deg, rgba(14,165,233,0.2), rgba(139,92,246,0.1)),
-                radial-gradient(circle at 70% 30%, #1e293b, #0f172a);
+/* ─── Recent capture grid items ──────────────────────────── */
+.capture-thumb {
     position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: border-color .18s;
+}
+.capture-thumb:hover { border-color: var(--emerald); }
+.capture-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.capture-thumb .ct-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,27,46,.7);
+    opacity: 0; transition: opacity .18s;
+    display: flex; flex-direction: column;
+    justify-content: flex-end; padding: 8px;
+}
+.capture-thumb:hover .ct-overlay { opacity: 1; }
+.capture-thumb .ct-badge {
+    position: absolute; top: 4px; left: 4px;
+    font-size: 9px; font-family: var(--font-mono);
+    font-weight: 600; letter-spacing: .06em;
+    padding: 2px 6px; border-radius: 100px;
+}
+.capture-thumb .ct-del {
+    position: absolute; top: 4px; right: 4px;
+    opacity: 0; transition: opacity .18s;
+    padding: 4px; border-radius: 4px;
+    background: rgba(248,113,113,.8); border: none;
+    cursor: pointer; display: flex;
+}
+.capture-thumb:hover .ct-del { opacity: 1; }
+.capture-thumb .ct-del svg { width: 10px; height: 10px; color: white; }
+
+/* ─── Modals ─────────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,27,46,.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px; z-index: 1000;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+    background: rgba(10,32,50,.97);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    width: 100%;
+    box-shadow: 0 32px 80px rgba(0,0,0,.5);
     overflow: hidden;
 }
-.capture-header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' stroke='%230ea5e9' stroke-width='0.5' stroke-opacity='0.1'%3E%3Cpath d='M0 0h60v60H0z'/%3E%3C/g%3E%3C/svg%3E");
-    pointer-events: none;
+.modal-head {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: space-between;
 }
+.modal-title { font-size: 15px; font-weight: 600; color: var(--frost); display: flex; align-items: center; gap: 10px; }
+.modal-title svg { width: 16px; height: 16px; stroke-width: 1.5; }
+.modal-close {
+    padding: 6px; border-radius: 6px;
+    background: transparent; border: 1px solid rgba(83,118,146,.2);
+    color: var(--steel); cursor: pointer; display: flex;
+    transition: background .18s;
+}
+.modal-close:hover { background: var(--glass-hover); }
+.modal-close svg { width: 13px; height: 13px; stroke-width: 2; }
+.modal-body { padding: 24px; }
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--glass-border);
+    display: flex; gap: 8px;
+}
+.modal-footer .btn { flex: 1; justify-content: center; }
 
-/* Force video to be visible */
-#video {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: #000;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Fullscreen buttons (initially hidden) */
-.fullscreen-exit-btn,
-.fullscreen-capture-btn {
-    display: none;
-    z-index: 100;
-    cursor: pointer;
-    border: none;
-    font-weight: bold;
-    transition: all 0.2s;
-}
-.fullscreen-exit-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(255,255,255,0.2);
-}
-.fullscreen-exit-btn:hover {
-    background: rgba(255,255,255,0.2);
-    transform: scale(1.1);
-}
-.fullscreen-capture-btn {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #0ea5e9;        /* original blue */
-    color: white;
-    border-radius: 30px;
-    padding: 12px 24px;
-    font-size: 18px;
-    box-shadow: 0 0 20px rgba(14,165,233,0.5);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-.fullscreen-capture-btn:hover {
-    background: #0284c7;        /* darker blue */
-    transform: translateX(-50%) scale(1.05);
-}
-
-/* Show fullscreen buttons only when .camera-frame is in fullscreen */
-.camera-frame:fullscreen .fullscreen-exit-btn,
-.camera-frame:fullscreen .fullscreen-capture-btn {
-    display: flex !important;
-}
-.camera-frame:-webkit-full-screen .fullscreen-exit-btn,
-.camera-frame:-webkit-full-screen .fullscreen-capture-btn {
-    display: flex !important;
-}
-.camera-frame:-moz-full-screen .fullscreen-exit-btn,
-.camera-frame:-moz-full-screen .fullscreen-capture-btn {
-    display: flex !important;
-}
-.camera-frame:-ms-fullscreen .fullscreen-exit-btn,
-.camera-frame:-ms-fullscreen .fullscreen-capture-btn {
-    display: flex !important;
-}
-
-/* Preview Modal */
-.preview-modal {
-    background: rgba(30, 41, 59, 0.95);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(14,165,233,0.3); /* blue border */
-}
+/* Preview modal image */
 .preview-image {
-    max-height: 60vh;
-    object-fit: contain;
-    border-radius: 1rem;
-    border: 2px solid #0ea5e9; /* blue border */
+    width: 100%; border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    max-height: 55vh; object-fit: contain;
+    background: #000;
 }
+.meta-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+    margin-top: 16px;
+}
+.meta-cell {
+    padding: 10px 12px; border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid var(--glass-border);
+}
+.meta-cell .mk { font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); margin-bottom: 4px; }
+.meta-cell .mv { font-size: 13px; font-weight: 400; color: var(--frost); }
+
+/* ─── QA items ───────────────────────────────────────────── */
+.qa-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px; border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid rgba(179,205,228,.07);
+    cursor: pointer; text-decoration: none;
+    transition: background .18s, border-color .18s;
+    margin-bottom: 8px; width: 100%;
+    font-family: var(--font-ui); color: var(--haze);
+}
+.qa-item:hover { background: var(--glass-hover); border-color: rgba(179,205,228,.18); }
+.qa-item:last-child { margin-bottom: 0; }
+.qa-left { display: flex; align-items: center; gap: 12px; }
+.qa-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.qa-icon svg { width: 14px; height: 14px; stroke-width: 1.5; }
+.qa-label { font-size: 13px; font-weight: 400; color: var(--frost); }
+.qa-chevron svg { width: 13px; height: 13px; stroke-width: 1.5; color: var(--steel); }
+
+/* ─── Inputs local ───────────────────────────────────────── */
+.input {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-ui);
+    font-size: 13px; font-weight: 300;
+    color: var(--haze); outline: none;
+    transition: border-color .18s;
+    -webkit-appearance: none; appearance: none;
+}
+.input::placeholder { color: rgba(83,118,146,.45); }
+.input:focus { border-color: rgba(179,205,228,.38); }
+select.input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23537692' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 32px;
+}
+
+/* ─── Button local ───────────────────────────────────────── */
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 8px;
+    font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer; text-decoration: none;
+    transition: opacity .18s, transform .18s; white-space: nowrap;
+}
+.btn:hover { opacity: .85; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary   { background: linear-gradient(135deg, var(--haze), var(--frost)); color: var(--abyss); }
+.btn-secondary { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--haze); }
+.btn-ghost     { background: transparent; border: 1px solid rgba(83,118,146,.24); color: var(--steel); }
+.btn-emerald   { background: rgba(45,212,191,.10); border: 1px solid rgba(45,212,191,.28); color: var(--emerald); }
+.btn-lilac     { background: rgba(167,139,250,.10); border: 1px solid rgba(167,139,250,.28); color: var(--lilac); }
+.btn-amber     { background: rgba(251,191,36,.10); border: 1px solid rgba(251,191,36,.28); color: var(--amber); }
+.btn-danger    { background: rgba(248,113,113,.10); border: 1px solid rgba(248,113,113,.28); color: var(--alert); }
+.btn-full      { width: 100%; justify-content: center; }
+.btn-sm        { padding: 7px 12px; font-size: 12px; }
+
+/* label */
+.field-label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--steel);
+    display: block; margin-bottom: 8px;
+}
+
+/* section header */
+.sec-hd { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.sec-num { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--steel); opacity: .45; }
+.sec-title { font-size: 15px; font-weight: 500; letter-spacing: -.015em; color: var(--frost); }
+
+svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header – redesigned without stock image -->
-    <div class="capture-header glass rounded-2xl p-6 border border-gray-700/50">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+<div style="display:flex;flex-direction:column;gap:32px">
+
+  <!-- ── Page head ──────────────────────────────────────────── -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;padding-bottom:24px;border-bottom:1px solid var(--glass-border)">
+    <div>
+      <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--frost);display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Face Capture
+      </h1>
+      <p style="font-size:15px;font-weight:300;color:var(--steel)">Capture student faces and mark class attendance</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="cameraStatus" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;background:var(--glass-bg);border:1px solid var(--glass-border)">
+        <span id="camDot" style="width:7px;height:7px;border-radius:50%;background:var(--alert);flex-shrink:0"></span>
+        <span id="camStatusLabel" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel)">Offline</span>
+      </div>
+      <a href="{{ url_for('index') }}" class="btn btn-ghost btn-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- ── Main grid ──────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+
+    <!-- Left col -->
+    <div style="display:flex;flex-direction:column;gap:24px">
+
+      <!-- Camera panel -->
+      <div class="glass-l2" style="padding:24px">
+        <div class="sec-hd">
+          <span class="sec-num">01</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span class="sec-title">Live Camera</span>
+        </div>
+
+        <!-- Camera frame -->
+        <div class="camera-frame" style="aspect-ratio:16/9">
+          <video id="video" autoplay playsinline></video>
+          <div class="face-guide"></div>
+          <div class="scanning-line"></div>
+
+          <!-- Top-left counter -->
+          <div class="cam-overlay-top">
+            <div class="cam-count-badge">
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--steel)">Captures </span>
+              <span id="captureCount" style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--frost)">0</span>
+            </div>
+          </div>
+
+          <!-- Bottom-right controls -->
+          <div class="cam-overlay-br">
+            <button id="flipCamera" class="cam-btn" title="Flip camera">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            </button>
+            <button id="rotateView" class="cam-btn" title="Rotate view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
+            </button>
+            <button id="fullscreenCamera" class="cam-btn" title="Fullscreen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+          </div>
+
+          <!-- Fullscreen-only buttons -->
+          <button class="fullscreen-exit-btn" id="fullscreenExitBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <button class="fullscreen-capture-btn" id="fullscreenCaptureBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Capture Class
+          </button>
+        </div>
+
+        <!-- Camera start/stop -->
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:16px">
+          <button id="startCameraBtn" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Start Camera
+          </button>
+          <button id="stopCameraBtn" class="btn btn-ghost" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/></svg>
+            Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- Capture controls panel -->
+      <div class="glass-l2" style="padding:24px">
+        <div class="sec-hd">
+          <span class="sec-num">02</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span class="sec-title">Controls</span>
+        </div>
+
+        <!-- Mode tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:24px">
+          <button id="singleCaptureBtn" class="mode-tab active-single">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Single Student
+          </button>
+          <button id="classCaptureBtn" class="mode-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Entire Class
+          </button>
+        </div>
+
+        <!-- Threshold -->
+        <div style="margin-bottom:24px">
+          <label class="field-label">Recognition Threshold</label>
+          <div style="display:flex;align-items:center;gap:12px">
+            <input type="range" id="thresholdSlider" min="0.1" max="0.9" step="0.1" value="0.5" style="flex:1">
+            <span id="thresholdValue" style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--frost);min-width:32px">0.5</span>
+          </div>
+        </div>
+
+        <!-- Single student section -->
+        <div id="singleCaptureSection">
+          <label class="field-label">Select Student</label>
+          <div style="display:flex;gap:8px">
+            <select id="studentSelect" class="input" style="flex:1">
+              <option value="">— Select student —</option>
+              {% for student in students %}
+              <option value="{{ student.id }}">{{ student.name }} ({{ student.roll_no or 'No ID' }})</option>
+              {% endfor %}
+            </select>
+            <button id="captureStudentBtn" class="btn btn-emerald">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Capture
+            </button>
+          </div>
+        </div>
+
+        <!-- Class section -->
+        <div id="classCaptureSection" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
             <div>
-                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
-                    <i class="fas fa-camera mr-3 text-primary-400"></i>Face Capture
-                </h1>
-                <p class="text-gray-400">Capture student faces and mark class attendance</p>
+              <label class="field-label">Subject</label>
+              <select id="subjectSelect" class="input">
+                <option value="">— Select subject —</option>
+                {% for subject in subjects %}
+                <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
+                {% endfor %}
+              </select>
             </div>
-            <div class="flex items-center gap-3">
-                <div id="cameraStatus" class="flex items-center gap-2 px-3 py-2 glass rounded-lg">
-                    <span class="status-indicator inactive"></span>
-                    <span class="text-sm font-medium text-gray-300">Camera Offline</span>
-                </div>
-                <button onclick="window.location.href='{{ url_for('index') }}'"
-                        class="px-4 py-2 glass-btn text-white font-medium rounded-lg">
-                    <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
-                </button>
+            <div>
+              <label class="field-label">Teacher</label>
+              <select id="teacherSelect" class="input">
+                <option value="{{ session.user_id }}">{{ session.full_name }} (You)</option>
+                {% for teacher in teachers %}
+                {% if teacher.id != session.user_id %}
+                <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
             </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="captureClassBtn" class="btn btn-lilac" style="flex:1;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Capture Photo
+            </button>
+            <button id="recognizeBtn" class="btn btn-amber" style="flex:1;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Recognize Faces
+            </button>
+          </div>
         </div>
+
+        <!-- Status block -->
+        <div id="captureStatus" class="status-panel" style="display:none;margin-top:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel)">Status</span>
+            <button onclick="document.getElementById('captureStatus').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--steel);display:flex">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div id="statusMessage" style="font-size:13px;color:var(--haze)"></div>
+          <div id="statusProgress" style="display:none">
+            <div class="progress-track"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--steel);margin-top:4px;text-align:right" id="progressText">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent captures panel -->
+      <div class="glass-l2" style="padding:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div class="sec-hd" style="margin-bottom:0">
+            <span class="sec-num">03</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="sec-title">Recent Captures</span>
+          </div>
+          <button onclick="loadRecentCaptures()" class="btn btn-ghost btn-sm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div id="recentCaptures" class="preview-grid"></div>
+        <div id="noCapturesMessage" style="text-align:center;padding:40px 0">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div style="font-size:13px;color:var(--steel)">No recent captures</div>
+          <div style="font-size:12px;color:rgba(83,118,146,.5);margin-top:4px">Start camera and capture images to see them here</div>
+        </div>
+      </div>
     </div>
 
-    <div class="grid lg:grid-cols-3 gap-6">
-        <!-- Main Camera Section -->
-        <div class="lg:col-span-2">
-            <div class="glass rounded-2xl p-6 border border-gray-700/50">
-                <!-- Camera Preview -->
-                <div class="mb-6">
-                    <div class="camera-frame rounded-xl overflow-hidden aspect-video relative">
-                        <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
-                        <div class="face-guide"></div>
-                        <div class="scanning-line"></div>
-                        <div class="absolute top-3 left-3">
-                            <div class="px-3 py-1.5 bg-black/70 backdrop-blur-sm rounded-lg">
-                                <span class="text-xs font-medium text-gray-300">Captures: </span>
-                                <span id="captureCount" class="text-xs font-bold text-white">0</span>
-                            </div>
-                        </div>
-                        <div class="absolute bottom-3 right-3 flex gap-2">
-                            <button id="flipCamera" class="p-2 glass-btn rounded-lg">
-                                <i class="fas fa-sync-alt text-gray-300"></i>
-                            </button>
-                            <!-- Rotate View Button -->
-                            <button id="rotateView" class="p-2 glass-btn rounded-lg" title="Rotate view">
-                                <i class="fas fa-redo-alt text-gray-300"></i>
-                            </button>
-                            <!-- Fullscreen toggle button -->
-                            <button id="fullscreenCamera" class="p-2 glass-btn rounded-lg">
-                                <i class="fas fa-expand text-gray-300"></i>
-                            </button>
-                        </div>
+    <!-- Right sidebar -->
+    <div style="display:flex;flex-direction:column;gap:16px">
 
-                        <!-- Buttons that appear only in fullscreen -->
-                        <button class="fullscreen-exit-btn" id="fullscreenExitBtn" title="Exit Fullscreen (Esc)">✕</button>
-                        <button class="fullscreen-capture-btn" id="fullscreenCaptureBtn">
-                            <i class="fas fa-camera"></i> Capture Class
-                        </button>
-                    </div>
-                    
-                    <!-- Buttons: Start visible, Stop hidden (original state) -->
-                    <div class="flex justify-center mt-4 gap-3">
-                        <button id="startCameraBtn"
-                                class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                            <i class="fas fa-video"></i>Start Camera
-                        </button>
-                        <button id="stopCameraBtn" 
-                                class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 hidden">
-                            <i class="fas fa-stop"></i>Stop Camera
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Capture Controls (same as before) -->
-                <div class="space-y-6">
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Capture Mode</label>
-                            <div class="flex gap-2">
-                                <button id="singleCaptureBtn"
-                                        class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                                    <i class="fas fa-user"></i>Single Student
-                                </button>
-                                <button id="classCaptureBtn"
-                                        class="flex-1 px-4 py-3 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                                    <i class="fas fa-users"></i>Entire Class
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Recognition Threshold</label>
-                            <div class="flex items-center gap-3">
-                                <input type="range" id="thresholdSlider" min="0.1" max="0.9" step="0.1" value="0.5" 
-                                       class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary-500">
-                                <span id="thresholdValue" class="text-sm font-medium text-white min-w-[40px]">0.5</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Student Selection -->
-                    <div id="singleCaptureSection" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Select Student</label>
-                            <div class="flex gap-2">
-                                <select id="studentSelect" class="flex-1 bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                                    <option value="">-- Select Student --</option>
-                                    {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.name }} ({{ student.roll_no or 'No ID' }})</option>
-                                    {% endfor %}
-                                </select>
-                                <button id="captureStudentBtn"
-                                        class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2">
-                                    <i class="fas fa-camera"></i>Capture
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Class Capture Section -->
-                    <div id="classCaptureSection" class="space-y-4 hidden">
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-400 mb-2">Subject</label>
-                                <select id="subjectSelect" class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                                    <option value="">-- Select Subject --</option>
-                                    {% for subject in subjects %}
-                                    <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-400 mb-2">Teacher</label>
-                                <select id="teacherSelect" class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                                    <option value="{{ session.user_id }}">{{ session.full_name }} (You)</option>
-                                    {% for teacher in teachers %}
-                                    {% if teacher.id != session.user_id %}
-                                    <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
-                                    {% endif %}
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="flex gap-3">
-                            <button id="captureClassBtn"
-                                    class="flex-1 px-4 py-3 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                                <i class="fas fa-camera"></i>Capture Class Photo
-                            </button>
-                            <button id="recognizeBtn"
-                                    class="flex-1 px-4 py-3 bg-warning-600 hover:bg-warning-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                                <i class="fas fa-robot"></i>Recognize Faces
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Status Display -->
-                    <div id="captureStatus" class="p-4 bg-gray-900/50 rounded-lg border border-gray-700 hidden">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-medium text-white">Capture Status</h4>
-                            <button onclick="document.getElementById('captureStatus').classList.add('hidden')"
-                                    class="text-gray-400 hover:text-white">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div id="statusMessage" class="text-sm text-gray-300"></div>
-                        <div id="statusProgress" class="mt-2 hidden">
-                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                                <div id="progressBar" class="h-full bg-primary-500 rounded-full transition-all duration-300"></div>
-                            </div>
-                            <div class="text-xs text-gray-400 mt-1 text-right" id="progressText">0%</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Captures (unchanged) -->
-            <div class="glass rounded-2xl p-6 mt-6 border border-gray-700/50">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-white flex items-center">
-                        <i class="fas fa-history mr-2 text-primary-400"></i>Recent Captures
-                    </h3>
-                    <button onclick="loadRecentCaptures()" 
-                            class="text-sm text-gray-400 hover:text-white flex items-center gap-1 glass-btn px-3 py-1 rounded-lg">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                
-                <div id="recentCaptures" class="preview-grid">
-                    <!-- Captures will be loaded dynamically -->
-                </div>
-                
-                <div id="noCapturesMessage" class="no-captures text-center py-8">
-                    <i class="fas fa-image text-gray-600 text-4xl mb-3"></i>
-                    <p class="text-gray-400 mb-2">No recent captures</p>
-                    <p class="text-sm text-gray-500">Start camera and capture images to see them here</p>
-                </div>
-            </div>
+      <!-- Upload panel -->
+      <div class="glass-l2" style="padding:24px">
+        <div class="sec-hd">
+          <span class="sec-num">04</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="sec-title">Upload</span>
         </div>
 
-        <!-- Sidebar (unchanged) -->
-        <div class="space-y-6">
-            <!-- Upload Section -->
-            <div class="glass rounded-2xl p-6 border border-gray-700/50">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-upload mr-2 text-primary-400"></i>Upload Images
-                </h3>
-                
-                <div class="upload-dropzone rounded-xl p-6 text-center cursor-pointer"
-                     id="uploadDropzone">
-                    <i class="fas fa-cloud-upload-alt text-gray-500 text-3xl mb-3"></i>
-                    <p class="text-gray-400 mb-1">Drop images here or click to browse</p>
-                    <p class="text-xs text-gray-500">Supports JPG, PNG • Max 5MB per image</p>
-                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
-                </div>
-                
-                <div id="uploadPreview" class="preview-grid mt-4 hidden"></div>
-                
-                <!-- Two buttons: one for plain upload, one for upload+recognize -->
-                <div class="mt-4 flex gap-3">
-                    <button id="uploadBtn" 
-                            class="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                        <i class="fas fa-upload"></i>Upload Only
-                    </button>
-                    <button id="uploadRecognizeBtn"
-                            class="flex-1 py-2.5 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center justify-center gap-2">
-                        <i class="fas fa-robot"></i>Upload & Recognize
-                    </button>
-                </div>
-            </div>
-
-            <!-- Statistics -->
-            <div class="stats-card rounded-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-chart-bar mr-2 text-primary-400"></i>Statistics
-                </h3>
-                
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-400">Total Students</span>
-                        <span class="text-lg font-bold text-white">{{ student_count }}</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-400">Face Images</span>
-                        <span id="totalFaces" class="text-lg font-bold text-white">0</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-400">Today's Captures</span>
-                        <span id="todayCaptures" class="text-lg font-bold text-white">0</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-400">Storage Used</span>
-                        <span id="storageUsed" class="text-lg font-bold text-white">0 MB</span>
-                    </div>
-                </div>
-                
-                <div class="mt-6 pt-6 border-t border-gray-700">
-                    <div class="text-xs text-gray-400 mb-2">System Status</div>
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-300">Face Recognition</span>
-                            <span id="recognitionStatus" class="text-sm font-medium text-success">
-                                <i class="fas fa-check-circle mr-1"></i>Ready
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-300">Camera</span>
-                            <span id="cameraStatusText" class="text-sm font-medium text-danger">
-                                <i class="fas fa-times-circle mr-1"></i>Offline
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-300">Encodings</span>
-                            <span id="encodingsStatus" class="text-sm font-medium text-warning">
-                                <i class="fas fa-exclamation-circle mr-1"></i>Not Ready
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="glass rounded-2xl p-6 border border-gray-700/50">
-                <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-bolt mr-2 text-yellow-400"></i>Quick Actions
-                </h3>
-                
-                <div class="space-y-3">
-                    <button onclick="window.location.href='{{ url_for('students') }}'"
-                            class="w-full text-left p-3 bg-gray-900/50 hover:bg-gray-900 rounded-lg transition-all flex items-center justify-between group">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-lg bg-primary-900/30 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-user-plus text-primary-400"></i>
-                            </div>
-                            <span class="font-medium text-white">Register New Student</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-primary-400 transition-colors"></i>
-                    </button>
-                    
-                    <button id="encodeBtn"
-                            class="w-full text-left p-3 bg-gray-900/50 hover:bg-gray-900 rounded-lg transition-all flex items-center justify-between group">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-lg bg-warning-900/30 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-brain text-warning-400"></i>
-                            </div>
-                            <span class="font-medium text-white">Generate Encodings</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-warning-400 transition-colors"></i>
-                    </button>
-                    
-                    <button onclick="window.location.href='{{ url_for('attendance') }}'"
-                            class="w-full text-left p-3 bg-gray-900/50 hover:bg-gray-900 rounded-lg transition-all flex items-center justify-between group">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-lg bg-success-900/30 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-file-export text-success-400"></i>
-                            </div>
-                            <span class="font-medium text-white">Export Reports</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-success-400 transition-colors"></i>
-                    </button>
-                </div>
-            </div>
+        <div class="upload-dropzone" id="uploadDropzone">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p style="font-size:13px;color:var(--steel);margin-bottom:4px">Drop images or click to browse</p>
+          <p style="font-size:11px;color:rgba(83,118,146,.5)">JPG, PNG &mdash; max 5 MB each</p>
+          <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
         </div>
+
+        <div id="uploadPreview" class="preview-grid" style="margin-top:12px;display:none"></div>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button id="uploadBtn" class="btn btn-secondary" style="flex:1;justify-content:center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload
+          </button>
+          <button id="uploadRecognizeBtn" class="btn btn-emerald" style="flex:1;justify-content:center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Recognize
+          </button>
+        </div>
+      </div>
+
+      <!-- Statistics panel -->
+      <div class="glass-l2" style="padding:24px">
+        <div class="sec-hd">
+          <span class="sec-num">05</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span class="sec-title">Statistics</span>
+        </div>
+        <div class="stat-row"><span class="key">Total Students</span><span class="val">{{ student_count }}</span></div>
+        <div class="stat-row"><span class="key">Face Images</span><span id="totalFaces" class="val">—</span></div>
+        <div class="stat-row"><span class="key">Today's Captures</span><span id="todayCaptures" class="val">—</span></div>
+        <div class="stat-row"><span class="key">Storage Used</span><span id="storageUsed" class="val">—</span></div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--glass-border)">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:10px;opacity:.6">System</div>
+          <div class="sys-row">
+            <span class="sys-key">Face Recognition</span>
+            <span id="recognitionStatus" class="sys-ok"><span class="sys-dot ok"></span>Ready</span>
+          </div>
+          <div class="sys-row">
+            <span class="sys-key">Camera</span>
+            <span id="cameraStatusText" class="sys-err"><span class="sys-dot err"></span>Offline</span>
+          </div>
+          <div class="sys-row">
+            <span class="sys-key">Encodings</span>
+            <span id="encodingsStatus" class="sys-warn"><span class="sys-dot warn"></span>Not Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="glass-l2" style="padding:24px">
+        <div class="sec-hd">
+          <span class="sec-num">06</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span class="sec-title">Quick Actions</span>
+        </div>
+
+        <button onclick="window.location.href='{{ url_for('students') }}'" class="qa-item">
+          <div class="qa-left">
+            <div class="qa-icon" style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.15)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--lilac)" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            </div>
+            <span class="qa-label">Register Student</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+
+        <button id="encodeBtn" class="qa-item">
+          <div class="qa-left">
+            <div class="qa-icon" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            </div>
+            <span class="qa-label">Generate Encodings</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+
+        <button onclick="window.location.href='{{ url_for('attendance') }}'" class="qa-item">
+          <div class="qa-left">
+            <div class="qa-icon" style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <span class="qa-label">Export Reports</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+      </div>
+
     </div>
+  </div>
 </div>
 
-<!-- Canvas (hidden) -->
-<canvas id="canvas" class="hidden"></canvas>
+<!-- Hidden canvas -->
+<canvas id="canvas" style="display:none"></canvas>
 
-<!-- NEW: Preview Modal -->
-<div id="previewModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-    <div class="preview-modal rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-pink-500/30">
-        <div class="p-6 border-b border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold text-white flex items-center">
-                    <i class="fas fa-camera-retro text-pink-400 mr-2"></i>Preview Class Photo
-                </h3>
-                <button onclick="closePreviewModal()" 
-                        class="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                    <i class="fas fa-times text-gray-400"></i>
-                </button>
-            </div>
-        </div>
-        <div class="p-6 overflow-y-auto">
-            <img id="previewImage" src="" alt="Preview" class="preview-image w-full rounded-lg mb-4">
-            <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
-                <div class="bg-gray-800 p-3 rounded-lg">
-                    <span class="text-gray-400 block">Subject</span>
-                    <span id="previewSubject" class="text-white font-medium"></span>
-                </div>
-                <div class="bg-gray-800 p-3 rounded-lg">
-                    <span class="text-gray-400 block">Teacher</span>
-                    <span id="previewTeacher" class="text-white font-medium"></span>
-                </div>
-                <div class="bg-gray-800 p-3 rounded-lg">
-                    <span class="text-gray-400 block">Threshold</span>
-                    <span id="previewThreshold" class="text-white font-medium"></span>
-                </div>
-            </div>
-            <div class="flex gap-3 pt-4 border-t border-gray-700">
-                <button onclick="closePreviewModal()"
-                        class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-times mr-2"></i>Cancel
-                </button>
-                <button id="confirmRecognizeBtn"
-                        class="flex-1 px-4 py-3 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-check mr-2"></i>Confirm & Recognize
-                </button>
-            </div>
-        </div>
+<!-- ── Preview / Confirm Modal ────────────────────────────── -->
+<div id="previewModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-head">
+      <div class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Confirm Capture
+      </div>
+      <button class="modal-close" onclick="closePreviewModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
+    <div class="modal-body">
+      <img id="previewImage" src="" alt="Preview" class="preview-image">
+      <div class="meta-grid">
+        <div class="meta-cell"><div class="mk">Subject</div><div class="mv" id="previewSubject">—</div></div>
+        <div class="meta-cell"><div class="mk">Teacher</div><div class="mv" id="previewTeacher">—</div></div>
+        <div class="meta-cell"><div class="mk">Threshold</div><div class="mv" id="previewThreshold">—</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closePreviewModal()" class="btn btn-ghost">Cancel</button>
+      <button id="confirmRecognizeBtn" class="btn btn-emerald">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm &amp; Recognize
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
-// Global variables
 let selectedImages = [];
 let recentCaptures = [];
+let pendingRecognition = { blob: null, subjectId: null, teacherId: null, threshold: 0.5, fileName: '' };
 
-// NEW: Pending recognition data
-let pendingRecognition = {
-    blob: null,
-    subjectId: null,
-    teacherId: null,
-    threshold: 0.5,
-    fileName: ''
-};
-
+// ── Recent captures ──────────────────────────────────────
 async function loadRecentCaptures() {
     try {
-        const response = await fetch('/api/recent_captures');
-        if (response.ok) {
-            const data = await response.json();
+        const res = await fetch('/api/recent_captures');
+        if (res.ok) {
+            const data = await res.json();
             recentCaptures = data.captures || [];
             displayRecentCaptures();
         }
-    } catch (error) {
-        console.error('Error loading recent captures:', error);
-    }
+    } catch(e) { console.error(e); }
 }
 
 function displayRecentCaptures() {
     const container = document.getElementById('recentCaptures');
-    const noCapturesMessage = document.getElementById('noCapturesMessage');
-    
+    const empty = document.getElementById('noCapturesMessage');
     if (!container) return;
-    
     container.innerHTML = '';
-    
-    if (recentCaptures.length === 0) {
-        if (noCapturesMessage) noCapturesMessage.classList.remove('hidden');
-        return;
-    }
-    
-    if (noCapturesMessage) noCapturesMessage.classList.add('hidden');
-    
-    recentCaptures.forEach((capture, index) => {
-        let icon = 'fa-image';
-        let badgeColor = 'bg-gray-600';
-        
-        if (capture.type === 'annotated') {
-            icon = 'fa-robot';
-            badgeColor = 'bg-primary-600';
-        } else if (capture.type === 'student') {
-            icon = 'fa-user';
-            badgeColor = 'bg-success-600';
-        } else if (capture.type === 'face') {
-            icon = 'fa-user-circle';
-            badgeColor = 'bg-warning-600';
-        } else if (capture.type === 'class') {
-            icon = 'fa-users';
-            badgeColor = 'bg-purple-600';
-        }
-        
-        const captureElement = document.createElement('div');
-        captureElement.className = 'preview-item group';
-        captureElement.innerHTML = `
-            <div class="relative w-full h-full">
-                <img src="${capture.thumbnail || capture.url || '/static/images/placeholder.jpg'}" 
-                     alt="${capture.name}"
-                     class="w-full h-full object-cover"
-                     onerror="this.src='/static/images/placeholder.jpg'">
-                
-                <div class="absolute top-1 left-1 ${badgeColor} text-white text-xs px-1 py-0.5 rounded">
-                    <i class="fas ${icon}"></i>
-                </div>
-                
-                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-2">
-                    <div class="text-xs text-white font-medium truncate">${capture.name}</div>
-                    <div class="text-xs text-gray-300 mt-1">${capture.time || ''}</div>
-                    <div class="text-xs text-gray-400 mt-1">${capture.size || ''}</div>
-                </div>
-                
-                <button type="button" onclick="deleteCapture('${capture.id}')" 
-                        class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 bg-danger-600 hover:bg-danger-700 text-white rounded">
-                    <i class="fas fa-trash text-xs"></i>
-                </button>
-            </div>
-        `;
-        
-        captureElement.addEventListener('click', function(e) {
-            if (!e.target.closest('button') && !e.target.closest('.delete-btn')) {
-                viewCapture(capture);
-            }
-        });
-        
-        container.appendChild(captureElement);
+    if (!recentCaptures.length) { if (empty) empty.style.display = ''; return; }
+    if (empty) empty.style.display = 'none';
+
+    const typeMap = {
+        annotated: { color: 'rgba(45,212,191,.12)', text: 'var(--emerald)', label: 'AI' },
+        student:   { color: 'rgba(167,139,250,.12)', text: 'var(--lilac)',   label: 'STU' },
+        face:      { color: 'rgba(251,191,36,.12)',  text: 'var(--amber)',   label: 'FACE' },
+        class:     { color: 'rgba(179,205,228,.08)', text: 'var(--haze)',    label: 'CLS' },
+    };
+
+    recentCaptures.forEach(capture => {
+        const t = typeMap[capture.type] || typeMap.class;
+        const el = document.createElement('div');
+        el.className = 'capture-thumb';
+        el.innerHTML = `
+            <img src="${capture.thumbnail || capture.url}" alt="${capture.name}" onerror="this.style.display='none'">
+            <div class="ct-badge" style="background:${t.color};color:${t.text}">${t.label}</div>
+            <button class="ct-del" onclick="event.stopPropagation();deleteCapture('${capture.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+            <div class="ct-overlay">
+                <div style="font-size:10px;color:var(--frost);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${capture.name}</div>
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--steel);margin-top:2px">${capture.time || ''}</div>
+            </div>`;
+        el.addEventListener('click', () => viewCapture(capture));
+        container.appendChild(el);
     });
 }
 
 function viewCapture(capture) {
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+    modal.className = 'modal-overlay open';
     modal.innerHTML = `
-        <div class="bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-primary-500/30">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
-                <div>
-                    <h3 class="font-semibold text-white">Capture Details</h3>
-                    <p class="text-sm text-gray-400">${capture.name}</p>
+        <div class="modal-box" style="max-width:680px">
+            <div class="modal-head">
+                <div class="modal-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--haze)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    ${capture.name}
                 </div>
-                <div class="flex items-center gap-2">
-                    <a href="${capture.url}" 
-                       download="${capture.filename || 'capture.jpg'}"
-                       class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors">
-                        <i class="fas fa-download mr-1"></i> Download
+                <div style="display:flex;gap:8px">
+                    <a href="${capture.url}" download="${capture.filename||'capture.jpg'}" class="btn btn-secondary btn-sm">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download
                     </a>
-                    <button onclick="this.closest('.fixed').remove(); document.body.style.overflow = 'auto';" 
-                            class="p-2 text-gray-400 hover:text-white">
-                        <i class="fas fa-times"></i>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove();document.body.style.overflow=''">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
             </div>
-            <div class="p-6 overflow-auto">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <div class="bg-gray-900 rounded-lg p-4">
-                            <img src="${capture.url || '/static/images/placeholder.jpg'}" 
-                                 alt="${capture.name}"
-                                 class="w-full rounded-lg max-h-[400px] object-contain"
-                                 onerror="this.src='/static/images/placeholder.jpg'">
-                        </div>
-                        <div class="grid grid-cols-3 gap-3">
-                            <div class="text-center p-3 bg-gray-900 rounded-lg">
-                                <div class="text-sm text-gray-400 mb-1">Type</div>
-                                <div class="text-white font-medium">
-                                    ${capture.type === 'annotated' ? 'Annotated' : 
-                                      capture.type === 'student' ? 'Student' : 
-                                      capture.type === 'face' ? 'Face' : 
-                                      capture.type === 'class' ? 'Class' : 'Image'}
-                                </div>
-                            </div>
-                            <div class="text-center p-3 bg-gray-900 rounded-lg">
-                                <div class="text-sm text-gray-400 mb-1">Size</div>
-                                <div class="text-white font-medium">${capture.size || 'Unknown'}</div>
-                            </div>
-                            <div class="text-center p-3 bg-gray-900 rounded-lg">
-                                <div class="text-sm text-gray-400 mb-1">Date</div>
-                                <div class="text-white font-medium">${capture.timestamp || 'Unknown'}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="bg-gray-900 rounded-lg p-4">
-                            <h4 class="font-medium text-white mb-3">Capture Information</h4>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-sm text-gray-400">Filename</label>
-                                    <p class="text-white font-mono text-sm break-all">${capture.filename || capture.id || 'Unknown'}</p>
-                                </div>
-                                <div>
-                                    <label class="text-sm text-gray-400">Display Name</label>
-                                    <p class="text-white">${capture.name || 'Unknown'}</p>
-                                </div>
-                                <div>
-                                    <label class="text-sm text-gray-400">Time</label>
-                                    <p class="text-white">${capture.time || capture.timestamp || 'Unknown'}</p>
-                                </div>
-                                <div>
-                                    <label class="text-sm text-gray-400">File Type</label>
-                                    <p class="text-white">${capture.filename ? capture.filename.split('.').pop().toUpperCase() : 'Unknown'}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-900 rounded-lg p-4">
-                            <h4 class="font-medium text-white mb-3">Actions</h4>
-                            <div class="grid grid-cols-2 gap-3">
-                                <button onclick="window.open('${capture.url}', '_blank')"
-                                        class="p-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center justify-center">
-                                    <i class="fas fa-external-link-alt mr-2"></i> Open Full
-                                </button>
-                                <a href="${capture.url}" 
-                                   download="${capture.filename || 'capture.jpg'}"
-                                   class="p-3 bg-success-600 hover:bg-success-700 text-white rounded-lg transition-colors flex items-center justify-center">
-                                    <i class="fas fa-download mr-2"></i> Download
-                                </a>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-900 rounded-lg p-4">
-                            <h4 class="font-medium text-white mb-3">Delete Capture</h4>
-                            <p class="text-sm text-gray-400 mb-3">This will permanently remove the capture file.</p>
-                            <button onclick="deleteAndClose('${capture.id}')"
-                                    class="w-full p-3 bg-danger-600 hover:bg-danger-700 text-white rounded-lg transition-colors flex items-center justify-center">
-                                <i class="fas fa-trash mr-2"></i> Delete Permanently
-                            </button>
-                        </div>
-                    </div>
+            <div class="modal-body">
+                <img src="${capture.url}" alt="${capture.name}" style="width:100%;border-radius:8px;border:1px solid var(--glass-border);max-height:50vh;object-fit:contain;background:#000">
+                <div class="meta-grid" style="margin-top:16px">
+                    <div class="meta-cell"><div class="mk">Type</div><div class="mv">${capture.type||'Image'}</div></div>
+                    <div class="meta-cell"><div class="mk">Size</div><div class="mv">${capture.size||'—'}</div></div>
+                    <div class="meta-cell"><div class="mk">Date</div><div class="mv">${capture.timestamp||'—'}</div></div>
                 </div>
             </div>
-        </div>
-    `;
-    
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="deleteAndClose('${capture.id}',this.closest('.modal-overlay'))">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                    Delete
+                </button>
+                <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove();document.body.style.overflow=''">Close</button>
+            </div>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) { modal.remove(); document.body.style.overflow = ''; }});
     document.body.appendChild(modal);
     document.body.style.overflow = 'hidden';
-    
-    modal.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            modal.remove();
-            document.body.style.overflow = 'auto';
-        }
-    });
-    
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            modal.remove();
-            document.body.style.overflow = 'auto';
-        }
-    });
 }
 
-async function deleteAndClose(filename) {
-    if (!confirm('Are you sure you want to delete this capture? This action cannot be undone.')) return;
-    
+async function deleteAndClose(filename, overlay) {
+    if (!confirm('Delete this capture permanently?')) return;
     try {
-        const response = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            document.querySelector('.fixed').remove();
-            document.body.style.overflow = 'auto';
+        const res = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        if (res.ok) {
+            overlay.remove();
+            document.body.style.overflow = '';
             await loadRecentCaptures();
-            toast('Capture deleted', 'success');
-        } else {
-            toast('Failed to delete capture', 'error');
-        }
-    } catch (error) {
-        toast('Failed to delete capture', 'error');
-    }
+            toast('Capture deleted.', 'success');
+        } else { toast('Delete failed.', 'error'); }
+    } catch { toast('Delete failed.', 'error'); }
 }
 
 async function deleteCapture(filename) {
-    if (!confirm('Are you sure you want to delete this capture?')) return;
-    
+    if (!confirm('Delete this capture?')) return;
     try {
-        const response = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            recentCaptures = recentCaptures.filter(c => c.id !== filename);
-            displayRecentCaptures();
-            toast('Capture deleted', 'success');
-        } else {
-            toast('Failed to delete capture', 'error');
-        }
-    } catch (error) {
-        toast('Failed to delete capture', 'error');
-    }
+        const res = await fetch(`/api/delete_capture/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        if (res.ok) { recentCaptures = recentCaptures.filter(c => c.id !== filename); displayRecentCaptures(); toast('Deleted.', 'success'); }
+        else { toast('Delete failed.', 'error'); }
+    } catch { toast('Delete failed.', 'error'); }
 }
 
+// ── Statistics ───────────────────────────────────────────
 async function loadStatistics() {
     try {
-        const response = await fetch('/api/capture_statistics');
-        if (response.ok) {
-            const data = await response.json();
-            
-            if (data.total_faces !== undefined) {
-                document.getElementById('totalFaces').textContent = data.total_faces;
-            }
-            
-            if (data.today_captures !== undefined) {
-                document.getElementById('todayCaptures').textContent = data.today_captures;
-            }
-            
-            if (data.storage_used !== undefined) {
-                document.getElementById('storageUsed').textContent = data.storage_used;
-            }
-            
-            if (data.recognition_ready !== undefined) {
-                const statusElement = document.getElementById('recognitionStatus');
-                if (statusElement) {
-                    statusElement.innerHTML = data.recognition_ready ? 
-                        '<i class="fas fa-check-circle mr-1"></i>Ready' :
-                        '<i class="fas fa-times-circle mr-1"></i>Not Ready';
-                    statusElement.className = `text-sm font-medium ${data.recognition_ready ? 'text-success' : 'text-danger'}`;
-                }
-            }
-            
-            if (data.encodings_ready !== undefined) {
-                const statusElement = document.getElementById('encodingsStatus');
-                if (statusElement) {
-                    statusElement.innerHTML = data.encodings_ready ? 
-                        '<i class="fas fa-check-circle mr-1"></i>Ready' :
-                        '<i class="fas fa-exclamation-circle mr-1"></i>Not Ready';
-                    statusElement.className = `text-sm font-medium ${data.encodings_ready ? 'text-success' : 'text-warning'}`;
-                }
-            }
+        const res = await fetch('/api/capture_statistics');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.total_faces   !== undefined) document.getElementById('totalFaces').textContent    = data.total_faces;
+        if (data.today_captures!== undefined) document.getElementById('todayCaptures').textContent = data.today_captures;
+        if (data.storage_used  !== undefined) document.getElementById('storageUsed').textContent   = data.storage_used;
+
+        const rEl = document.getElementById('recognitionStatus');
+        if (rEl && data.recognition_ready !== undefined) {
+            rEl.className = data.recognition_ready ? 'sys-ok' : 'sys-err';
+            rEl.innerHTML = `<span class="sys-dot ${data.recognition_ready?'ok':'err'}"></span>${data.recognition_ready?'Ready':'Not Ready'}`;
         }
-    } catch (error) {
-        console.error('Error loading statistics:', error);
-    }
+        const eEl = document.getElementById('encodingsStatus');
+        if (eEl && data.encodings_ready !== undefined) {
+            eEl.className = data.encodings_ready ? 'sys-ok' : 'sys-warn';
+            eEl.innerHTML = `<span class="sys-dot ${data.encodings_ready?'ok':'warn'}"></span>${data.encodings_ready?'Ready':'Not Ready'}`;
+        }
+    } catch(e) { console.error(e); }
 }
 
-// Wait for cameraManager to be available
-function waitForCameraManager(callback, maxAttempts = 50) {
-    let attempts = 0;
-    const interval = setInterval(() => {
-        if (window.cameraManager) {
-            clearInterval(interval);
-            console.log('✅ CameraManager found');
-            callback(window.cameraManager);
-        } else if (attempts++ >= maxAttempts) {
-            clearInterval(interval);
-            console.error('❌ CameraManager not available after', maxAttempts, 'attempts');
-            toast('Camera system failed to load. Please refresh.', 'error');
-        }
-    }, 100);
-}
-
-// NEW: Preview Modal Functions
-function openPreviewModal(imageUrl, subject, teacher, threshold, fileName) {
-    document.getElementById('previewImage').src = imageUrl;
-    document.getElementById('previewSubject').textContent = subject;
-    document.getElementById('previewTeacher').textContent = teacher;
-    document.getElementById('previewThreshold').textContent = threshold;
-    document.getElementById('previewModal').classList.remove('hidden');
+// ── Preview modal ────────────────────────────────────────
+function openPreviewModal(imageUrl, subject, teacher, threshold) {
+    document.getElementById('previewImage').src       = imageUrl;
+    document.getElementById('previewSubject').textContent  = subject;
+    document.getElementById('previewTeacher').textContent  = teacher;
+    document.getElementById('previewThreshold').textContent= threshold;
+    document.getElementById('previewModal').classList.add('open');
     document.body.style.overflow = 'hidden';
 }
-
 function closePreviewModal() {
-    document.getElementById('previewModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
+    document.getElementById('previewModal').classList.remove('open');
+    document.body.style.overflow = '';
     pendingRecognition.blob = null;
 }
 
-// NEW: Confirm recognition
+// ── Confirm recognition ──────────────────────────────────
 async function confirmRecognition() {
-    if (!pendingRecognition.blob) {
-        toast('No image to process', 'error');
-        closePreviewModal();
-        return;
-    }
-
-    const subjectId = pendingRecognition.subjectId;
-    const teacherId = pendingRecognition.teacherId;
-    const threshold = pendingRecognition.threshold;
-    const blob = pendingRecognition.blob;
-    const fileName = pendingRecognition.fileName || 'class.jpg';
-
-    setLoading(document.getElementById('confirmRecognizeBtn'), true, 'Recognizing...');
-    showLoading('Recognizing faces...');
-
+    if (!pendingRecognition.blob) { toast('No image to process.', 'error'); closePreviewModal(); return; }
+    const { blob, subjectId, teacherId, threshold, fileName } = pendingRecognition;
+    const btn = document.getElementById('confirmRecognizeBtn');
+    setLoading(btn, true, 'Recognizing…');
+    showLoading('Recognizing faces…');
     try {
-        const formData = new FormData();
-        formData.append('image', blob, fileName);
-        formData.append('subject_id', subjectId);
-        formData.append('threshold', threshold);
-        if (teacherId) formData.append('teacher_id', teacherId);
-
-        const response = await fetch('/recognize', {
-            method: 'POST',
-            body: formData
-        });
+        const fd = new FormData();
+        fd.append('image', blob, fileName);
+        fd.append('subject_id', subjectId);
+        fd.append('threshold', threshold);
+        if (teacherId) fd.append('teacher_id', teacherId);
+        const res  = await fetch('/recognize', { method: 'POST', body: fd });
         hideLoading();
-
-        const data = await response.json();
+        const data = await res.json();
         if (data.success) {
-            toast(`Recognized ${data.recognized} of ${data.faces_found} faces`, 'success');
-            if (data.annotated_image) {
-                showAnnotatedResult(data);
-            }
+            toast(`Recognized ${data.recognized} of ${data.faces_found} faces.`, 'success');
+            if (data.annotated_image) showAnnotatedResult(data);
             closePreviewModal();
             loadRecentCaptures();
-        } else {
-            toast(data.error || 'Recognition failed', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        toast('Recognition failed: ' + error.message, 'error');
-    } finally {
-        setLoading(document.getElementById('confirmRecognizeBtn'), false);
-        pendingRecognition.blob = null;
-    }
+        } else { toast(data.error || 'Recognition failed.', 'error'); }
+    } catch(e) { hideLoading(); toast('Recognition failed.', 'error'); }
+    finally { setLoading(btn, false); pendingRecognition.blob = null; }
 }
 
 function showAnnotatedResult(data) {
-    const popup = window.open('', '_blank', 'width=800,height=620');
+    const popup = window.open('', '_blank', 'width=820,height=640');
     if (!popup) return;
     popup.document.write(`<!DOCTYPE html><html><head><title>Recognition Results</title>
-        <style>body{margin:0;padding:20px;background:#0f172a;color:white;font-family:sans-serif;}
-        img{max-width:100%;border-radius:10px;border:2px solid #ec4899;box-shadow:0 0 30px rgba(236,72,153,0.5);}
-        .info{margin-top:20px;padding:20px;background:#1e293b;border-radius:10px;}</style>
+        <style>body{margin:0;padding:24px;background:#001b2e;color:#b3cde4;font-family:Helvetica Neue,sans-serif;}
+        img{max-width:100%;border-radius:8px;border:1px solid rgba(179,205,228,.14);}
+        .info{margin-top:20px;padding:20px;background:rgba(179,205,228,.05);border:1px solid rgba(179,205,228,.12);border-radius:10px;}
+        h2{font-size:18px;font-weight:600;color:#eef3f9;margin-bottom:16px;}
+        p{font-size:13px;margin:6px 0;}</style>
         </head><body>
-        <h2 class="gradient-text">Recognition Results</h2>
+        <h2>Recognition Results</h2>
         <img src="${data.annotated_image}" alt="Annotated">
         <div class="info">
             <p><strong>Faces found:</strong> ${data.faces_found}</p>
             <p><strong>Recognized:</strong> ${data.recognized}</p>
-            <p><strong>Students:</strong> ${(data.marked_students || []).join(', ') || 'None'}</p>
+            <p><strong>Students:</strong> ${(data.marked_students||[]).join(', ')||'None'}</p>
         </div></body></html>`);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM loaded, initializing page...');
-    loadRecentCaptures();
-    loadStatistics();
-    
-    const startBtn = document.getElementById('startCameraBtn');
-    const stopBtn = document.getElementById('stopCameraBtn');
-    const flipBtn = document.getElementById('flipCamera');
-    const rotateViewBtn = document.getElementById('rotateView');
-    const fullscreenBtn = document.getElementById('fullscreenCamera');
-    const fullscreenExitBtn = document.getElementById('fullscreenExitBtn');
-    const fullscreenCaptureBtn = document.getElementById('fullscreenCaptureBtn');
-    const captureStudentBtn = document.getElementById('captureStudentBtn');
-    const captureClassBtn = document.getElementById('captureClassBtn');
-    const recognizeBtn = document.getElementById('recognizeBtn');
-    const encodeBtn = document.getElementById('encodeBtn');
-    const thresholdSlider = document.getElementById('thresholdSlider');
-    const thresholdValue = document.getElementById('thresholdValue');
-    
-    // Upload & Recognize button
-    const uploadRecognizeBtn = document.getElementById('uploadRecognizeBtn');
-    if (uploadRecognizeBtn) {
-        uploadRecognizeBtn.addEventListener('click', async function() {
-            if (selectedImages.length === 0) {
-                toast('Please select images first', 'error');
-                return;
-            }
+// ── Camera manager init ──────────────────────────────────
+function waitForCameraManager(cb, max=50) {
+    let n = 0;
+    const t = setInterval(() => {
+        if (window.cameraManager) { clearInterval(t); cb(window.cameraManager); }
+        else if (n++ >= max) { clearInterval(t); toast('Camera system failed to load. Refresh the page.', 'error'); }
+    }, 100);
+}
 
-            // Get subject and teacher from class capture section (must be visible)
-            const subjectId = document.getElementById('subjectSelect').value;
-            if (!subjectId) {
-                toast('Please select a subject in the Class Capture section', 'error');
-                return;
-            }
-            const teacherId = document.getElementById('teacherSelect').value;
-            const threshold = thresholdSlider ? thresholdSlider.value : 0.5;
-
-            // Use the first selected image
-            const file = selectedImages[0];
-            
-            // Create object URL for preview
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const subjectText = document.getElementById('subjectSelect').selectedOptions[0]?.text || 'Unknown';
-                const teacherText = document.getElementById('teacherSelect').selectedOptions[0]?.text || 'You';
-                
-                // Store pending data
-                pendingRecognition.blob = file;
-                pendingRecognition.subjectId = subjectId;
-                pendingRecognition.teacherId = teacherId;
-                pendingRecognition.threshold = threshold;
-                pendingRecognition.fileName = file.name;
-                
-                openPreviewModal(e.target.result, subjectText, teacherText, threshold, file.name);
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-
-    // Update threshold display
-    if (thresholdSlider && thresholdValue) {
-        thresholdSlider.addEventListener('input', function() {
-            thresholdValue.textContent = this.value;
-        });
-    }
-    
-    // Fullscreen toggle button (enter fullscreen)
-    if (fullscreenBtn) {
-        fullscreenBtn.addEventListener('click', function() {
-            const container = document.querySelector('.camera-frame');
-            if (!container) return;
-            if (container.requestFullscreen) {
-                container.requestFullscreen();
-            } else if (container.webkitRequestFullscreen) {
-                container.webkitRequestFullscreen();
-            } else if (container.msRequestFullscreen) {
-                container.msRequestFullscreen();
-            }
-        });
-    }
-    
-    // Exit fullscreen button (appears only in fullscreen)
-    if (fullscreenExitBtn) {
-        fullscreenExitBtn.addEventListener('click', function() {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            }
-        });
-    }
-    
-    // Capture button that appears in fullscreen – triggers the same action as "Capture Class Photo"
-    if (fullscreenCaptureBtn) {
-        fullscreenCaptureBtn.addEventListener('click', function() {
-            document.getElementById('captureClassBtn').click();
-        });
-    }
-    
-    // Wait for cameraManager and then auto-start
-    waitForCameraManager(async function(cameraManager) {
-        console.log('🎥 CameraManager ready, auto-starting camera...');
-        
-        const success = await cameraManager.startCamera();
-        if (success) {
-            console.log('✅ Camera started automatically');
-            startBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            
-            document.querySelector('#cameraStatus .status-indicator').className = 'status-indicator active';
-            document.querySelector('#cameraStatus span:last-child').textContent = 'Camera Online';
-            document.getElementById('cameraStatusText').innerHTML = '<i class="fas fa-check-circle mr-1"></i>Online';
-            document.getElementById('cameraStatusText').className = 'text-sm font-medium text-success';
-            
-            const video = document.getElementById('video');
-            if (video && video.srcObject) {
-                video.style.minHeight = '300px';
-                video.style.height = '300px';
-                setTimeout(() => {
-                    const stream = video.srcObject;
-                    video.srcObject = null;
-                    video.srcObject = stream;
-                    video.load();
-                    video.play().catch(e => console.warn('Re-play failed', e));
-                    setTimeout(() => {
-                        video.style.minHeight = '';
-                        video.style.height = '';
-                    }, 500);
-                }, 200);
-            }
-            
-            toast('Camera started', 'success');
-        } else {
-            console.warn('⚠️ Auto-start failed');
-            startBtn.classList.remove('hidden');
-            stopBtn.classList.add('hidden');
-            toast('Failed to start camera automatically. Click Start Camera.', 'error');
-        }
-        
-        // Event listeners for camera controls
-        startBtn.addEventListener('click', async function() {
-            setLoading(this, true, 'Starting...');
-            const success = await cameraManager.startCamera();
-            setLoading(this, false);
-            if (success) {
-                startBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-                const video = document.getElementById('video');
-                if (video && video.srcObject) {
-                    video.style.minHeight = '300px';
-                    video.style.height = '300px';
-                    setTimeout(() => {
-                        const stream = video.srcObject;
-                        video.srcObject = null;
-                        video.srcObject = stream;
-                        video.load();
-                        video.play().catch(e => console.warn('Re-play failed', e));
-                        setTimeout(() => {
-                            video.style.minHeight = '';
-                            video.style.height = '';
-                        }, 500);
-                    }, 200);
-                }
-                toast('Camera started', 'success');
-            } else {
-                toast('Failed to start camera', 'error');
-            }
-        });
-        
-        stopBtn.addEventListener('click', function() {
-            cameraManager.stopCamera();
-            startBtn.classList.remove('hidden');
-            stopBtn.classList.add('hidden');
-            toast('Camera stopped', 'info');
-        });
-        
-        flipBtn.addEventListener('click', function() {
-            if (cameraManager.isActive) {
-                cameraManager.toggleCamera();
-            } else {
-                toast('Start camera first', 'warning');
-            }
-        });
-        
-        // Rotate view button
-        if (rotateViewBtn) {
-            rotateViewBtn.addEventListener('click', function() {
-                if (cameraManager && cameraManager.isActive) {
-                    cameraManager.rotateView(90);
-                } else {
-                    toast('Start camera first', 'warning');
-                }
-            });
-        }
-        
-        captureStudentBtn.addEventListener('click', async function() {
-            if (!cameraManager.isActive) {
-                toast('Please start camera first', 'error');
-                return;
-            }
-            
-            const studentId = document.getElementById('studentSelect').value;
-            if (!studentId) {
-                toast('Please select a student', 'error');
-                return;
-            }
-            
-            setLoading(this, true, 'Capturing...');
-            
-            try {
-                const blob = await cameraManager.captureFrame('blob', 0.9, true);
-                if (!blob) throw new Error('Failed to capture frame');
-                
-                const formData = new FormData();
-                formData.append('student_id', studentId);
-                formData.append('image', blob, 'face.jpg');
-                
-                const response = await fetch('/api/capture_student', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    toast(`Face captured for ${data.student_name || 'student'}`, 'success');
-                    loadRecentCaptures();
-                    loadStatistics();
-                } else {
-                    const error = await response.json();
-                    toast(error.error || 'Capture failed', 'error');
-                }
-            } catch (error) {
-                toast(error.message || 'Capture failed', 'error');
-            } finally {
-                setLoading(this, false);
-            }
-        });
-        
-        captureClassBtn.addEventListener('click', async function() {
-            if (!cameraManager.isActive) {
-                toast('Please start camera first', 'error');
-                return;
-            }
-
-            const subjectId = document.getElementById('subjectSelect').value;
-            const teacherId = document.getElementById('teacherSelect').value;
-            const threshold = thresholdSlider ? thresholdSlider.value : 0.5;
-
-            if (!subjectId) {
-                toast('Please select a subject', 'error');
-                return;
-            }
-
-            setLoading(this, true, 'Capturing...');
-
-            try {
-                const blob = await cameraManager.captureFrame('blob', 0.9, true);
-                if (!blob) throw new Error('Failed to capture frame');
-
-                // Create object URL for preview
-                const url = URL.createObjectURL(blob);
-                
-                // Get display texts
-                const subjectText = document.getElementById('subjectSelect').selectedOptions[0]?.text || 'Unknown';
-                const teacherText = document.getElementById('teacherSelect').selectedOptions[0]?.text || 'You';
-                
-                // Store pending data
-                pendingRecognition.blob = blob;
-                pendingRecognition.subjectId = subjectId;
-                pendingRecognition.teacherId = teacherId;
-                pendingRecognition.threshold = threshold;
-                pendingRecognition.fileName = `class_${Date.now()}.jpg`;
-                
-                openPreviewModal(url, subjectText, teacherText, threshold, pendingRecognition.fileName);
-                
-                // Clean up object URL later
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-                
-            } catch (error) {
-                toast(error.message || 'Capture failed', 'error');
-            } finally {
-                setLoading(this, false);
-            }
-        });
-        
-        recognizeBtn.addEventListener('click', async function() {
-            const subjectId = document.getElementById('subjectSelect').value;
-            const teacherId = document.getElementById('teacherSelect').value;
-            const threshold = thresholdSlider ? thresholdSlider.value : 0.5;
-
-            if (!subjectId) {
-                toast('Please select a subject', 'error');
-                return;
-            }
-
-            setLoading(this, true, 'Recognizing...');
-            showLoading('Running face recognition...');
-
-            try {
-                const formData = new FormData();
-                formData.append('subject_id', subjectId);
-                formData.append('teacher_id', teacherId);
-                formData.append('threshold', threshold);
-                if (cameraManager.isActive) {
-                    const blob = await cameraManager.captureFrame('blob', 0.9, true);
-                    formData.append('image', blob, 'class.jpg');
-                }
-
-                const response = await fetch('/recognize', {
-                    method: 'POST',
-                    body: formData
-                });
-                hideLoading();
-
-                const data = await response.json();
-                if (data.success) {
-                    toast(`Recognized ${data.recognized} of ${data.faces_found} faces`, 'success');
-                    if (data.annotated_image) {
-                        showAnnotatedResult(data);
-                    }
-                    loadRecentCaptures();
-                    loadStatistics();
-                } else {
-                    toast(data.error || 'Recognition failed', 'error');
-                }
-            } catch (error) {
-                hideLoading();
-                toast(error.message || 'Recognition failed', 'error');
-            } finally {
-                setLoading(this, false);
-            }
-        });
-    });
-    
-    // Non-camera listeners
-    encodeBtn.addEventListener('click', async function() {
-        if (!confirm('This will generate face encodings for all students in the background. Continue?')) return;
-
-        setLoading(this, true, 'Starting...');
-
-        try {
-            await fetch('/encode', { method: 'POST', redirect: 'follow' });
-            toast('Face encoding started in background', 'info');
-
-            let encodePoller = setInterval(async () => {
-                try {
-                    const statusResp = await fetch('/encode_status');
-                    const status = await statusResp.json();
-
-                    if (status.running) {
-                        encodeBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Encoding ${status.progress || 0}%`;
-                        encodeBtn.disabled = true;
-                    } else {
-                        clearInterval(encodePoller);
-                        setLoading(encodeBtn, false);
-                        if (status.status === 'complete') {
-                            toast(status.message || 'Encoding complete!', 'success');
-                        } else if (status.status === 'error') {
-                            toast('Encoding error: ' + (status.error || 'Unknown'), 'error');
-                        }
-                        loadStatistics();
-                    }
-                } catch (e) {
-                    clearInterval(encodePoller);
-                    setLoading(encodeBtn, false);
-                }
-            }, 1500);
-        } catch (error) {
-            toast('Encoding failed', 'error');
-            setLoading(encodeBtn, false);
-        }
-    });
-    
-    const singleCaptureBtn = document.getElementById('singleCaptureBtn');
-    const classCaptureBtn = document.getElementById('classCaptureBtn');
-    
-    if (singleCaptureBtn && classCaptureBtn) {
-        singleCaptureBtn.addEventListener('click', function() {
-            document.getElementById('singleCaptureSection').classList.remove('hidden');
-            document.getElementById('classCaptureSection').classList.add('hidden');
-            singleCaptureBtn.classList.remove('bg-primary-600');
-            singleCaptureBtn.classList.add('bg-primary-700');
-            classCaptureBtn.classList.remove('bg-success-700');
-            classCaptureBtn.classList.add('bg-success-600');
-        });
-        
-        classCaptureBtn.addEventListener('click', function() {
-            document.getElementById('classCaptureSection').classList.remove('hidden');
-            document.getElementById('singleCaptureSection').classList.add('hidden');
-            classCaptureBtn.classList.remove('bg-success-600');
-            classCaptureBtn.classList.add('bg-success-700');
-            singleCaptureBtn.classList.remove('bg-primary-700');
-            singleCaptureBtn.classList.add('bg-primary-600');
-        });
-    }
-    
-    const uploadDropzone = document.getElementById('uploadDropzone');
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    
-    if (uploadDropzone && fileInput && uploadBtn) {
-        uploadDropzone.addEventListener('click', () => fileInput.click());
-        uploadDropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadDropzone.classList.add('dragover');
-        });
-        uploadDropzone.addEventListener('dragleave', () => {
-            uploadDropzone.classList.remove('dragover');
-        });
-        uploadDropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadDropzone.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
-        
-        uploadBtn.addEventListener('click', async () => {
-            if (selectedImages.length === 0) {
-                toast('Please select images first', 'error');
-                return;
-            }
-            
-            setLoading(uploadBtn, true, 'Uploading...');
-            
-            try {
-                const formData = new FormData();
-                selectedImages.forEach((file) => {
-                    formData.append('images', file);
-                });
-                
-                const response = await fetch('/api/upload_faces', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    toast(`Uploaded ${data.uploaded} image(s)`, 'success');
-                    selectedImages = [];
-                    document.getElementById('uploadPreview').classList.add('hidden');
-                    document.getElementById('uploadPreview').innerHTML = '';
-                    loadRecentCaptures();
-                    loadStatistics();
-                } else {
-                    toast('Upload failed', 'error');
-                }
-            } catch (error) {
-                toast('Upload failed', 'error');
-            } finally {
-                setLoading(uploadBtn, false);
-            }
-        });
-    }
-    
-    function handleFiles(files) {
-        const previewContainer = document.getElementById('uploadPreview');
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            if (!file.type.match('image.*')) {
-                toast(`Skipped ${file.name}: Not an image file`, 'warning');
-                continue;
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                toast(`Skipped ${file.name}: File too large (max 5MB)`, 'warning');
-                continue;
-            }
-            selectedImages.push(file);
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const preview = document.createElement('div');
-                preview.className = 'preview-item';
-                preview.innerHTML = `
-                    <img src="${e.target.result}" alt="${file.name}">
-                    <button type="button" onclick="removeUploadPreview(this)" 
-                            class="delete-btn">
-                        <i class="fas fa-times text-xs"></i>
-                    </button>
-                `;
-                previewContainer.appendChild(preview);
-                previewContainer.classList.remove('hidden');
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        if (selectedImages.length > 0) {
-            toast(`Added ${selectedImages.length} image(s)`, 'success');
-        }
-    }
-});
-
-function removeUploadPreview(button) {
-    const previewItem = button.closest('.preview-item');
-    const index = Array.from(previewItem.parentNode.children).indexOf(previewItem);
-    selectedImages.splice(index, 1);
-    previewItem.remove();
-    if (selectedImages.length === 0) {
-        document.getElementById('uploadPreview').classList.add('hidden');
+function setCameraOnline(on) {
+    const dot   = document.getElementById('camDot');
+    const label = document.getElementById('camStatusLabel');
+    const txt   = document.getElementById('cameraStatusText');
+    if (on) {
+        dot.style.background   = 'var(--emerald)';
+        dot.style.boxShadow    = '0 0 6px rgba(45,212,191,.6)';
+        label.textContent      = 'Online';
+        label.style.color      = 'var(--emerald)';
+        if (txt) txt.innerHTML = '<span class="sys-dot ok"></span>Online';
+        if (txt) txt.className = 'sys-ok';
+    } else {
+        dot.style.background   = 'var(--alert)';
+        dot.style.boxShadow    = 'none';
+        label.textContent      = 'Offline';
+        label.style.color      = 'var(--steel)';
+        if (txt) txt.innerHTML = '<span class="sys-dot err"></span>Offline';
+        if (txt) txt.className = 'sys-err';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentCaptures();
+    loadStatistics();
+
+    const startBtn        = document.getElementById('startCameraBtn');
+    const stopBtn         = document.getElementById('stopCameraBtn');
+    const flipBtn         = document.getElementById('flipCamera');
+    const rotateBtn       = document.getElementById('rotateView');
+    const fsBtn           = document.getElementById('fullscreenCamera');
+    const fsExitBtn       = document.getElementById('fullscreenExitBtn');
+    const fsCaptureBtn    = document.getElementById('fullscreenCaptureBtn');
+    const threshSlider    = document.getElementById('thresholdSlider');
+    const threshVal       = document.getElementById('thresholdValue');
+    const singleModeBtn   = document.getElementById('singleCaptureBtn');
+    const classModeBtn    = document.getElementById('classCaptureBtn');
+    const captureStudBtn  = document.getElementById('captureStudentBtn');
+    const captureClassBtn = document.getElementById('captureClassBtn');
+    const recognizeBtn    = document.getElementById('recognizeBtn');
+    const encodeBtn       = document.getElementById('encodeBtn');
+    const uploadDropzone  = document.getElementById('uploadDropzone');
+    const fileInput       = document.getElementById('fileInput');
+    const uploadBtn       = document.getElementById('uploadBtn');
+    const uploadRecBtn    = document.getElementById('uploadRecognizeBtn');
+
+    // Threshold
+    if (threshSlider) threshSlider.addEventListener('input', () => { threshVal.textContent = threshSlider.value; });
+
+    // Mode tabs
+    singleModeBtn.addEventListener('click', () => {
+        document.getElementById('singleCaptureSection').style.display = '';
+        document.getElementById('classCaptureSection').style.display  = 'none';
+        singleModeBtn.className = 'mode-tab active-single';
+        classModeBtn.className  = 'mode-tab';
+    });
+    classModeBtn.addEventListener('click', () => {
+        document.getElementById('classCaptureSection').style.display  = '';
+        document.getElementById('singleCaptureSection').style.display = 'none';
+        classModeBtn.className  = 'mode-tab active-class';
+        singleModeBtn.className = 'mode-tab';
+    });
+
+    // Fullscreen
+    fsBtn.addEventListener('click', () => {
+        const frame = document.querySelector('.camera-frame');
+        (frame.requestFullscreen||frame.webkitRequestFullscreen||frame.msRequestFullscreen).call(frame);
+    });
+    fsExitBtn.addEventListener('click', () => (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen).call(document));
+    fsCaptureBtn.addEventListener('click', () => captureClassBtn.click());
+
+    // Upload dropzone
+    uploadDropzone.addEventListener('click', () => fileInput.click());
+    uploadDropzone.addEventListener('dragover', e => { e.preventDefault(); uploadDropzone.classList.add('dragover'); });
+    uploadDropzone.addEventListener('dragleave', () => uploadDropzone.classList.remove('dragover'));
+    uploadDropzone.addEventListener('drop', e => { e.preventDefault(); uploadDropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+    uploadBtn.addEventListener('click', async () => {
+        if (!selectedImages.length) { toast('Select images first.', 'error'); return; }
+        setLoading(uploadBtn, true, 'Uploading…');
+        try {
+            const fd = new FormData();
+            selectedImages.forEach(f => fd.append('images', f));
+            const res  = await fetch('/api/upload_faces', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (res.ok) {
+                toast(`Uploaded ${data.uploaded} image(s).`, 'success');
+                selectedImages = [];
+                const prev = document.getElementById('uploadPreview');
+                prev.innerHTML = ''; prev.style.display = 'none';
+                loadRecentCaptures(); loadStatistics();
+            } else { toast('Upload failed.', 'error'); }
+        } catch { toast('Upload failed.', 'error'); }
+        finally { setLoading(uploadBtn, false); }
+    });
+
+    uploadRecBtn.addEventListener('click', async () => {
+        if (!selectedImages.length) { toast('Select images first.', 'error'); return; }
+        const subjectId = document.getElementById('subjectSelect').value;
+        if (!subjectId) { toast('Select a subject in Class mode first.', 'error'); return; }
+        const teacherId   = document.getElementById('teacherSelect').value;
+        const threshold   = threshSlider ? threshSlider.value : 0.5;
+        const file        = selectedImages[0];
+        const reader      = new FileReader();
+        reader.onload = e => {
+            pendingRecognition = {
+                blob: file, subjectId, teacherId, threshold, fileName: file.name
+            };
+            const subjTxt = document.getElementById('subjectSelect').selectedOptions[0]?.text || '—';
+            const teaTxt  = document.getElementById('teacherSelect').selectedOptions[0]?.text || 'You';
+            openPreviewModal(e.target.result, subjTxt, teaTxt, threshold);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function handleFiles(files) {
+        const prev = document.getElementById('uploadPreview');
+        for (const file of files) {
+            if (!file.type.match('image.*')) { toast(`${file.name}: not an image.`, 'warning'); continue; }
+            if (file.size > 5 * 1024 * 1024) { toast(`${file.name}: exceeds 5 MB.`, 'warning'); continue; }
+            selectedImages.push(file);
+            const reader = new FileReader();
+            reader.onload = e => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = `<img src="${e.target.result}" alt="${file.name}">
+                    <button class="delete-btn" onclick="removeUploadPreview(this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>`;
+                prev.appendChild(item);
+                prev.style.display = '';
+            };
+            reader.readAsDataURL(file);
+        }
+        if (selectedImages.length) toast(`Added ${selectedImages.length} image(s).`, 'success');
+    }
+
+    // Encode button
+    encodeBtn.addEventListener('click', async () => {
+        if (!confirm('Generate face encodings for all students in the background?')) return;
+        setLoading(encodeBtn, true, 'Starting…');
+        try {
+            await fetch('/encode', { method: 'POST', redirect: 'follow' });
+            toast('Encoding started.', 'info');
+            const poller = setInterval(async () => {
+                try {
+                    const res    = await fetch('/encode_status');
+                    const status = await res.json();
+                    if (status.running) {
+                        encodeBtn.innerHTML = `<svg style="animation:spin .8s linear infinite;width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> ${status.progress||0}%`;
+                        encodeBtn.disabled = true;
+                    } else {
+                        clearInterval(poller);
+                        setLoading(encodeBtn, false);
+                        if (status.status === 'complete') toast(status.message || 'Encoding complete.', 'success');
+                        else if (status.status === 'error') toast('Encoding error: ' + (status.error||'Unknown'), 'error');
+                        loadStatistics();
+                    }
+                } catch { clearInterval(poller); setLoading(encodeBtn, false); }
+            }, 1500);
+        } catch { toast('Encoding failed.', 'error'); setLoading(encodeBtn, false); }
+    });
+
+    // Camera manager
+    waitForCameraManager(async cm => {
+        const success = await cm.startCamera();
+        if (success) {
+            startBtn.style.display = 'none';
+            stopBtn.style.display  = '';
+            setCameraOnline(true);
+            // re-attach stream
+            const video = document.getElementById('video');
+            if (video?.srcObject) {
+                const s = video.srcObject; video.srcObject = null; video.srcObject = s;
+                video.play().catch(()=>{});
+            }
+            toast('Camera started.', 'success');
+        } else {
+            startBtn.style.display = '';
+            stopBtn.style.display  = 'none';
+            toast('Could not start camera automatically.', 'error');
+        }
+
+        startBtn.addEventListener('click', async () => {
+            setLoading(startBtn, true, 'Starting…');
+            const ok = await cm.startCamera();
+            setLoading(startBtn, false);
+            if (ok) {
+                startBtn.style.display = 'none'; stopBtn.style.display = '';
+                setCameraOnline(true);
+                toast('Camera started.', 'success');
+            } else { toast('Failed to start camera.', 'error'); }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            cm.stopCamera();
+            startBtn.style.display = ''; stopBtn.style.display = 'none';
+            setCameraOnline(false);
+            toast('Camera stopped.', 'info');
+        });
+
+        flipBtn.addEventListener('click', () => {
+            if (cm.isActive) cm.toggleCamera(); else toast('Start camera first.', 'warning');
+        });
+        rotateBtn.addEventListener('click', () => {
+            if (cm.isActive) cm.rotateView(90); else toast('Start camera first.', 'warning');
+        });
+
+        captureStudBtn.addEventListener('click', async () => {
+            if (!cm.isActive) { toast('Start camera first.', 'error'); return; }
+            const studentId = document.getElementById('studentSelect').value;
+            if (!studentId) { toast('Select a student.', 'error'); return; }
+            setLoading(captureStudBtn, true, 'Capturing…');
+            try {
+                const blob = await cm.captureFrame('blob', 0.9, true);
+                if (!blob) throw new Error('Capture failed');
+                const fd = new FormData();
+                fd.append('student_id', studentId);
+                fd.append('image', blob, 'face.jpg');
+                const res = await fetch('/api/capture_student', { method:'POST', body:fd });
+                if (res.ok) {
+                    const data = await res.json();
+                    toast(`Face captured for ${data.student_name||'student'}.`, 'success');
+                    loadRecentCaptures(); loadStatistics();
+                } else {
+                    const err = await res.json();
+                    toast(err.error||'Capture failed.', 'error');
+                }
+            } catch(e) { toast(e.message||'Capture failed.', 'error'); }
+            finally { setLoading(captureStudBtn, false); }
+        });
+
+        captureClassBtn.addEventListener('click', async () => {
+            if (!cm.isActive) { toast('Start camera first.', 'error'); return; }
+            const subjectId = document.getElementById('subjectSelect').value;
+            const teacherId = document.getElementById('teacherSelect').value;
+            const threshold = threshSlider ? threshSlider.value : 0.5;
+            if (!subjectId) { toast('Select a subject.', 'error'); return; }
+            setLoading(captureClassBtn, true, 'Capturing…');
+            try {
+                const blob = await cm.captureFrame('blob', 0.9, true);
+                if (!blob) throw new Error('Capture failed');
+                const url        = URL.createObjectURL(blob);
+                const subjTxt    = document.getElementById('subjectSelect').selectedOptions[0]?.text || '—';
+                const teaTxt     = document.getElementById('teacherSelect').selectedOptions[0]?.text || 'You';
+                pendingRecognition = { blob, subjectId, teacherId, threshold, fileName: `class_${Date.now()}.jpg` };
+                openPreviewModal(url, subjTxt, teaTxt, threshold);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch(e) { toast(e.message||'Capture failed.', 'error'); }
+            finally { setLoading(captureClassBtn, false); }
+        });
+
+        recognizeBtn.addEventListener('click', async () => {
+            const subjectId = document.getElementById('subjectSelect').value;
+            const teacherId = document.getElementById('teacherSelect').value;
+            const threshold = threshSlider ? threshSlider.value : 0.5;
+            if (!subjectId) { toast('Select a subject.', 'error'); return; }
+            setLoading(recognizeBtn, true, 'Recognizing…');
+            showLoading('Running face recognition…');
+            try {
+                const fd = new FormData();
+                fd.append('subject_id', subjectId);
+                fd.append('teacher_id', teacherId);
+                fd.append('threshold', threshold);
+                if (cm.isActive) {
+                    const blob = await cm.captureFrame('blob', 0.9, true);
+                    fd.append('image', blob, 'class.jpg');
+                }
+                const res  = await fetch('/recognize', { method:'POST', body:fd });
+                hideLoading();
+                const data = await res.json();
+                if (data.success) {
+                    toast(`Recognized ${data.recognized} of ${data.faces_found} faces.`, 'success');
+                    if (data.annotated_image) showAnnotatedResult(data);
+                    loadRecentCaptures(); loadStatistics();
+                } else { toast(data.error||'Recognition failed.', 'error'); }
+            } catch(e) { hideLoading(); toast(e.message||'Recognition failed.', 'error'); }
+            finally { setLoading(recognizeBtn, false); }
+        });
+    });
+});
+
+function removeUploadPreview(btn) {
+    const item  = btn.closest('.preview-item');
+    const idx   = Array.from(item.parentNode.children).indexOf(item);
+    selectedImages.splice(idx, 1);
+    item.remove();
+    if (!selectedImages.length) { const p = document.getElementById('uploadPreview'); p.style.display = 'none'; }
+}
+
+document.getElementById('confirmRecognizeBtn').addEventListener('click', confirmRecognition);
 
 setInterval(() => {
     if (window.location.pathname.includes('/capture')) {
@@ -1532,12 +1298,7 @@ setInterval(() => {
         loadStatistics();
     }
 }, 30000);
-
-// NEW: Confirm button listener
-document.getElementById('confirmRecognizeBtn').addEventListener('click', confirmRecognition);
 </script>
 
-<!-- Only include camera.js -->
 <script src="{{ url_for('static', filename='js/camera.js') }}"></script>
-
 {% endblock %}

@@ -1,830 +1,1375 @@
 {% extends "base.html" %}
 {% set active_page = 'attendance' %}
-{% block title %}Attendance • AI Attendance{% endblock %}
+{% block title %}Attendance • Attendix{% endblock %}
 
 {% block head %}
 <style>
-    /* Existing styles – unchanged */
-    .attendance-table { font-size: 0.875rem; }
-    .attendance-table th {
-        background: rgba(30, 41, 59, 0.8);
-        backdrop-filter: blur(5px);
-        color: #cbd5e1;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-    .attendance-table td {
-        vertical-align: middle;
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(3px);
-    }
-    .attendance-table tr:hover td { background: rgba(30, 41, 59, 0.8); }
-    .attendance-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        font-size: 0.75rem;
-        font-weight: 600;
-        transition: all 0.2s;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    .attendance-badge.present {
-        background: linear-gradient(135deg, #059669, #10b981);
-        color: white;
-    }
-    .attendance-badge.absent {
-        background: linear-gradient(135deg, #b91c1c, #ef4444);
-        color: white;
-    }
-    .attendance-badge.na {
-        background: #374151;
-        color: #9ca3af;
-    }
-    .percentage-high { color: #10b981; }
-    .percentage-medium { color: #f59e0b; }
-    .percentage-low { color: #ef4444; }
-    .student-row:hover { background-color: rgba(255, 255, 255, 0.05); }
-    @media (max-width: 768px) {
-        .attendance-table { display: block; overflow-x: auto; white-space: nowrap; }
-        .session-column { min-width: 60px; }
-    }
-    .glass-table {
-        background: rgba(15, 23, 42, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .attendance-header {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(139, 92, 246, 0.1)), 
-                    radial-gradient(circle at 30% 30%, #0f172a, #1e293b);
-        position: relative;
-        overflow: visible;
-    }
-    .attendance-header::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' stroke='%230ea5e9' stroke-width='0.5' stroke-opacity='0.1'%3E%3Cpath d='M0 0h60v60H0z'/%3E%3C/g%3E%3C/svg%3E");
-        pointer-events: none;
-    }
-    /* NEW: Sticky note button style */
-    .sticky-note-btn {
-        background: rgba(255, 193, 7, 0.2);
-        border: 1px solid rgba(255, 193, 7, 0.3);
-        transition: all 0.2s;
-    }
-    .sticky-note-btn:hover {
-        background: rgba(255, 193, 7, 0.4);
-        transform: scale(1.1);
-        border-color: #f59e0b;
-    }
-    /* Student search modal */
-    .student-search {
-        background: rgba(30, 41, 59, 0.95);
-        backdrop-filter: blur(10px);
-    }
+  /* ─── Reset & Base ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  -webkit-font-smoothing: antialiased;
+
+  /* ─── Design Tokens ────────────────────────────────────── */
+  :root {
+    --abyss:        #001b2e;
+    --slate:        #1d3f58;
+    --steel:        #537692;
+    --haze:         #b3cde4;
+    --frost:        #eef3f9;
+    --emerald:      #2dd4bf;
+    --alert:        #f87171;
+    --amber:        #fbbf24;
+    --lilac:        #a78bfa;
+    --glass-bg:     rgba(179,205,228,.06);
+    --glass-border: rgba(179,205,228,.14);
+    --glass-hover:  rgba(179,205,228,.10);
+    --font-ui:      'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-mono:    'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+
+  /* ─── Background Orbs ──────────────────────────────────── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(90px);
+  }
+  .orb-1 {
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(29,63,88,.7), transparent 70%);
+    top: -250px; left: -150px;
+  }
+  .orb-2 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(83,118,146,.4), transparent 70%);
+    top: 50%; right: -200px;
+  }
+  .orb-3 {
+    width: 450px; height: 450px;
+    background: radial-gradient(circle, rgba(29,63,88,.5), transparent 70%);
+    bottom: -100px; left: 25%;
+  }
+
+  /* ─── Page Wrapper ─────────────────────────────────────── */
+  .att-page {
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    color: var(--haze);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── Glassmorphism Levels ─────────────────────────────── */
+  .glass-l2 {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+  }
+  .glass-l3 {
+    background: rgba(179,205,228,.03);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(179,205,228,.07);
+    border-radius: 12px;
+  }
+
+  /* ─── Section Header ───────────────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--steel);
+    opacity: .45;
+  }
+  .section-title {
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -.015em;
+    color: var(--frost);
+  }
+
+  /* ─── UI Label ─────────────────────────────────────────── */
+  .ui-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--steel);
+  }
+
+  /* ─── Caption ──────────────────────────────────────────── */
+  .caption {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--steel);
+  }
+
+  /* ─── Buttons ──────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .18s, transform .18s;
+    white-space: nowrap;
+  }
+  .btn:hover { opacity: .85; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #b3cde4, #eef3f9);
+    color: var(--abyss);
+  }
+  .btn-secondary {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--haze);
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(83,118,146,.24);
+    color: var(--steel);
+  }
+  .btn-amber {
+    background: rgba(251,191,36,.12);
+    border: 1px solid rgba(251,191,36,.3);
+    color: var(--amber);
+  }
+  .btn-danger {
+    background: rgba(248,113,113,.10);
+    border: 1px solid rgba(248,113,113,.28);
+    color: var(--alert);
+  }
+  .btn-emerald {
+    background: rgba(45,212,191,.10);
+    border: 1px solid rgba(45,212,191,.28);
+    color: var(--emerald);
+  }
+  .btn-icon {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  /* ─── Inputs ───────────────────────────────────────────── */
+  .input, select.input {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--haze);
+    outline: none;
+    transition: border-color .18s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .input::placeholder { color: rgba(83,118,146,.45); }
+  .input:focus { border-color: rgba(179,205,228,.38); }
+  select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23537692' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+  /* ─── Status Badges ────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font-ui);
+    white-space: nowrap;
+  }
+  .badge-present  { color: var(--emerald); border: 1px solid rgba(45,212,191,.24);  background: rgba(45,212,191,.07);  }
+  .badge-absent   { color: var(--alert);   border: 1px solid rgba(248,113,113,.24); background: rgba(248,113,113,.07); }
+  .badge-pending  { color: var(--amber);   border: 1px solid rgba(251,191,36,.24);  background: rgba(251,191,36,.07);  }
+  .badge-excused  { color: var(--lilac);   border: 1px solid rgba(167,139,250,.24); background: rgba(167,139,250,.07); }
+  .badge-neutral  { color: var(--steel);   border: 1px solid rgba(83,118,146,.24);  background: rgba(83,118,146,.07);  }
+
+  /* ─── Stat Cards ───────────────────────────────────────── */
+  .stat-card {
+    padding: 24px;
+    border-radius: 12px;
+  }
+  .stat-card .stat-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--steel);
+    margin-bottom: 12px;
+  }
+  .stat-card .stat-value {
+    font-family: var(--font-ui);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--frost);
+    letter-spacing: -.03em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat-card .stat-sub {
+    font-size: 11px;
+    font-weight: 300;
+    color: var(--steel);
+  }
+  .stat-card .stat-bar {
+    margin-top: 16px;
+    height: 2px;
+    background: rgba(83,118,146,.2);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .stat-card .stat-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+  }
+
+  /* ─── Page Layout ──────────────────────────────────────── */
+  .att-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding: 48px 0 80px;
+  }
+
+  /* ─── Header Block ─────────────────────────────────────── */
+  .page-head {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .page-head-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .page-head-title {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    color: var(--frost);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .page-head-title svg { color: var(--emerald); }
+  .page-head-desc {
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--steel);
+    line-height: 1.75;
+  }
+  .page-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .head-divider {
+    height: 1px;
+    background: var(--glass-border);
+  }
+
+  /* ─── Stats Grid ───────────────────────────────────────── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .stats-grid { grid-template-columns: 1fr; } }
+
+  /* ─── Filters ──────────────────────────────────────────── */
+  .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1024px) { .filters-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px)  { .filters-grid { grid-template-columns: 1fr; } }
+
+  .filters-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  /* ─── Main Grid ────────────────────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 308px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* ─── Table Panel ──────────────────────────────────────── */
+  .table-panel { overflow: hidden; }
+  .table-panel-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .table-panel-header-text .sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--steel);
+    margin-top: 4px;
+  }
+  .table-scroll { overflow-x: auto; }
+
+  /* ─── Attendance Table ─────────────────────────────────── */
+  .att-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .att-table thead th {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--steel);
+    padding: 14px 16px;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background: rgba(0,27,46,.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--glass-border);
+    z-index: 10;
+  }
+  .att-table thead th.center { text-align: center; }
+  .att-table tbody td {
+    padding: 14px 16px;
+    font-weight: 300;
+    color: var(--haze);
+    border-bottom: 1px solid rgba(179,205,228,.05);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .att-table tbody tr:hover td { background: rgba(179,205,228,.03); }
+  .att-table tbody tr:last-child td { border-bottom: none; }
+  .att-table td.center { text-align: center; }
+  .att-table .col-student { min-width: 200px; }
+  .att-table .col-session { min-width: 72px; text-align: center; }
+
+  .student-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .student-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .student-name {
+    font-weight: 400;
+    color: var(--frost);
+    font-size: 13px;
+  }
+  .student-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel);
+    margin-top: 2px;
+  }
+
+  /* Attendance dot badges in table */
+  .att-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .att-dot.present { background: rgba(45,212,191,.12); color: var(--emerald); border: 1px solid rgba(45,212,191,.24); }
+  .att-dot.absent  { background: rgba(248,113,113,.10); color: var(--alert);   border: 1px solid rgba(248,113,113,.24); }
+  .att-dot.na      { background: rgba(83,118,146,.08);  color: var(--steel);   border: 1px solid rgba(83,118,146,.18); }
+
+  /* Percentage colors */
+  .pct-high   { color: var(--emerald); font-weight: 600; }
+  .pct-medium { color: var(--amber);   font-weight: 600; }
+  .pct-low    { color: var(--alert);   font-weight: 600; }
+
+  /* Session header cell */
+  .session-th-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .session-th-date { font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; color: var(--steel); }
+  .session-th-time { font-size: 9px; color: rgba(83,118,146,.6); }
+  .sticky-note-btn {
+    margin-top: 4px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    background: rgba(251,191,36,.08);
+    border: 1px solid rgba(251,191,36,.2);
+    color: var(--amber);
+    cursor: pointer;
+    transition: background .18s, border-color .18s;
+    display: inline-flex;
+  }
+  .sticky-note-btn:hover { background: rgba(251,191,36,.18); border-color: rgba(251,191,36,.4); }
+
+  /* ─── Lower Grid ───────────────────────────────────────── */
+  .lower-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  @media (max-width: 800px) { .lower-grid { grid-template-columns: 1fr; } }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .panel-header-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .panel-header-icon svg { width: 16px; height: 16px; stroke-width: 1.5; }
+  .panel-title { font-size: 15px; font-weight: 500; color: var(--frost); }
+  .panel-subtitle { font-size: 12px; color: var(--steel); margin-top: 2px; }
+
+  /* Defaulter item */
+  .defaulter-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid rgba(179,205,228,.07);
+    margin-bottom: 8px;
+    transition: background .18s;
+  }
+  .defaulter-item:hover { background: rgba(179,205,228,.06); }
+  .defaulter-item:last-child { margin-bottom: 0; }
+  .defaulter-pct {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(248,113,113,.08);
+    border: 1px solid rgba(248,113,113,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--alert);
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+  .defaulter-name { font-size: 13px; font-weight: 400; color: var(--frost); }
+  .defaulter-roll { font-family: var(--font-mono); font-size: 11px; color: var(--steel); margin-top: 2px; }
+  .defaulter-count { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--alert); }
+
+  /* Session item */
+  .session-item {
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid rgba(179,205,228,.07);
+    margin-bottom: 8px;
+    transition: background .18s;
+  }
+  .session-item:hover { background: rgba(179,205,228,.06); }
+  .session-item:last-child { margin-bottom: 0; }
+  .session-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .session-subject { font-size: 13px; font-weight: 400; color: var(--frost); }
+  .session-item-actions { display: flex; align-items: center; gap: 4px; }
+  .session-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--steel);
+  }
+  .session-teacher { display: flex; align-items: center; gap: 6px; }
+  .session-present { color: var(--emerald); font-family: var(--font-mono); font-size: 12px; }
+
+  .scroll-panel { max-height: 280px; overflow-y: auto; padding-right: 4px; }
+  .scroll-panel::-webkit-scrollbar { width: 3px; }
+  .scroll-panel::-webkit-scrollbar-track { background: transparent; }
+  .scroll-panel::-webkit-scrollbar-thumb { background: rgba(83,118,146,.3); border-radius: 100px; }
+
+  /* ─── Sidebar ──────────────────────────────────────────── */
+  .sidebar-col { display: flex; flex-direction: column; gap: 16px; }
+  .sidebar-panel { padding: 24px; }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(179,205,228,.06);
+    font-size: 13px;
+  }
+  .summary-row:last-of-type { border-bottom: none; }
+  .summary-row .key { color: var(--steel); }
+  .summary-row .val { color: var(--frost); font-weight: 400; font-family: var(--font-mono); font-size: 12px; }
+
+  .overall-bar-wrap { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--glass-border); }
+  .overall-bar-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .overall-bar-label .key { font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); }
+  .overall-pct { font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+  .overall-bar { height: 2px; background: rgba(83,118,146,.2); border-radius: 100px; overflow: hidden; margin-top: 4px; }
+  .overall-bar-fill { height: 100%; border-radius: 100px; }
+
+  /* Quick actions */
+  .qa-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(179,205,228,.03);
+    border: 1px solid rgba(179,205,228,.07);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .18s, border-color .18s;
+    margin-bottom: 8px;
+    width: 100%;
+    font-family: var(--font-ui);
+    color: var(--haze);
+  }
+  .qa-item:hover { background: var(--glass-hover); border-color: rgba(179,205,228,.18); }
+  .qa-item:last-child { margin-bottom: 0; }
+  .qa-item-left { display: flex; align-items: center; gap: 12px; }
+  .qa-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .qa-icon svg { width: 14px; height: 14px; stroke-width: 1.5; }
+  .qa-label { font-size: 13px; font-weight: 400; color: var(--frost); }
+  .qa-chevron { color: var(--steel); }
+  .qa-chevron svg { width: 14px; height: 14px; stroke-width: 1.5; }
+
+  /* Tips */
+  .tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--haze);
+    border-bottom: 1px solid rgba(179,205,228,.05);
+  }
+  .tip-item:last-child { border-bottom: none; }
+  .tip-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+
+  /* ─── Empty State ──────────────────────────────────────── */
+  .empty-state {
+    padding: 64px 24px;
+    text-align: center;
+  }
+  .empty-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: rgba(83,118,146,.08);
+    border: 1px solid rgba(83,118,146,.2);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .empty-icon svg { width: 24px; height: 24px; color: var(--steel); stroke-width: 1.5; }
+  .empty-title { font-size: 15px; font-weight: 500; color: var(--frost); margin-bottom: 8px; }
+  .empty-sub { font-size: 13px; font-weight: 300; color: var(--steel); margin-bottom: 24px; }
+
+  /* ─── Sticky Note Modal ────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,27,46,.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: rgba(10,32,50,.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(251,191,36,.2);
+    border-radius: 14px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 32px 80px rgba(0,0,0,.5);
+  }
+  .modal-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--frost);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-title svg { color: var(--amber); width: 18px; height: 18px; stroke-width: 1.5; }
+  .modal-subtitle { font-size: 12px; color: var(--steel); margin-top: 4px; }
+  .modal-close {
+    padding: 6px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid rgba(83,118,146,.2);
+    color: var(--steel);
+    cursor: pointer;
+    transition: background .18s;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .modal-close:hover { background: var(--glass-hover); }
+  .modal-close svg { width: 14px; height: 14px; stroke-width: 1.5; }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  .modal-label { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); margin-bottom: 8px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    gap: 8px;
+  }
+  .modal-footer .btn { flex: 1; justify-content: center; }
+
+  textarea.input { resize: vertical; min-height: 72px; }
+
+  .student-dropdown {
+    position: absolute;
+    top: calc(100% + 4px); left: 0; right: 0;
+    background: rgba(10,32,50,.98);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+  }
+  .student-dropdown.open { display: block; }
+  .student-dropdown-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(179,205,228,.05);
+    transition: background .15s;
+  }
+  .student-dropdown-item:last-child { border-bottom: none; }
+  .student-dropdown-item:hover { background: var(--glass-hover); }
+  .student-dropdown-item .sdi-name { font-size: 13px; color: var(--frost); }
+  .student-dropdown-item .sdi-roll { font-family: var(--font-mono); font-size: 11px; color: var(--steel); margin-top: 2px; }
+  .student-dropdown-item .sdi-empty { font-size: 12px; color: var(--steel); text-align: center; padding: 4px 0; }
+
+  /* ─── Lucide SVG helpers ────────────────────────────────── */
+  svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+
+  /* ─── Misc ─────────────────────────────────────────────── */
+  .divider { height: 1px; background: var(--glass-border); }
+  .text-frost { color: var(--frost); }
+  .text-steel { color: var(--steel); }
+  .mono { font-family: var(--font-mono); }
+  .fw-400 { font-weight: 400; }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white !important; color: black !important; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+  }
 </style>
+
+<!-- Lucide icons (CDN, SVG sprite approach via inline) -->
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header (unchanged) -->
-    <div class="attendance-header glass rounded-2xl p-6 border border-gray-700/50">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-            <div>
-                <h1 class="text-2xl font-bold text-white mb-2 flex items-center">
-                    <i class="fas fa-calendar-check mr-3 text-primary-400"></i>Attendance Dashboard
-                </h1>
-                <p class="text-gray-400">Track and analyze attendance across subjects and teachers</p>
-            </div>
-            <div class="flex items-center gap-3">
-                <a href="{{ url_for('create_session_page') }}" 
-                   class="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-plus"></i>New Session
-                </a>
-                <button onclick="printReport()"
-                        class="px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-print"></i>Print Report
-                </button>
-                <a href="{{ url_for('download_attendance_excel', 
-                          subject_id=selected_subject_id, 
-                          teacher_id=selected_teacher_id,
-                          start_date=start_date,
-                          end_date=end_date) }}" 
-                   class="px-4 py-2.5 bg-success-600 hover:bg-success-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-file-excel"></i>Excel Report
-                </a>
-                <a href="{{ url_for('export_defaulters', 
-                          subject_id=selected_subject_id, 
-                          teacher_id=selected_teacher_id,
-                          start_date=start_date,
-                          end_date=end_date) }}" 
-                   class="px-4 py-2.5 bg-warning-600 hover:bg-warning-700 text-white font-medium rounded-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg">
-                    <i class="fas fa-exclamation-triangle"></i>Defaulters
-                </a>
-            </div>
-        </div>
+
+<!-- Background orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="att-page">
+<div class="att-wrapper">
+
+  <!-- ── Page Header ───────────────────────────────────────── -->
+  <div class="page-head">
+    <div class="page-head-top">
+      <div>
+        <h1 class="page-head-title">
+          <!-- calendar-check icon -->
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+          Attendance
+        </h1>
+        <p class="page-head-desc">Track and analyze attendance across subjects and teachers</p>
+      </div>
+      <div class="page-head-actions no-print">
+        <a href="{{ url_for('create_session_page') }}" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New Session
+        </a>
+        <button onclick="printReport()" class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print
+        </button>
+        <a href="{{ url_for('download_attendance_excel', subject_id=selected_subject_id, teacher_id=selected_teacher_id, start_date=start_date, end_date=end_date) }}" class="btn btn-emerald">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Excel
+        </a>
+        <a href="{{ url_for('export_defaulters', subject_id=selected_subject_id, teacher_id=selected_teacher_id, start_date=start_date, end_date=end_date) }}" class="btn btn-amber">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Defaulters
+        </a>
+      </div>
     </div>
+    <div class="head-divider"></div>
+  </div>
 
-    <!-- Filters (unchanged) -->
-    <div class="glass rounded-2xl p-6 border border-gray-700/50">
-        <h2 class="text-lg font-semibold text-white mb-4 flex items-center">
-            <i class="fas fa-filter mr-2 text-primary-400"></i>Filters
-        </h2>
-        <form method="GET" action="{{ url_for('attendance') }}" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-2">Subject</label>
-                    <select name="subject_id" class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                        <option value="">All Subjects</option>
-                        {% for subject in subjects %}
-                        <option value="{{ subject.id }}" {% if subject.id|string == selected_subject_id %}selected{% endif %}>
-                            {{ subject.subject_name }}
-                            {% if subject.department %}({{ subject.department }}){% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-2">Teacher</label>
-                    <select name="teacher_id" class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                        <option value="">All Teachers</option>
-                        {% for teacher in teachers %}
-                        <option value="{{ teacher.id }}" {% if teacher.id|string == selected_teacher_id %}selected{% endif %}>
-                            {{ teacher.full_name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-2">From Date</label>
-                    <input type="date" name="start_date" value="{{ start_date }}" 
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-2">To Date</label>
-                    <input type="date" name="end_date" value="{{ end_date }}" 
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-primary-500">
-                </div>
-            </div>
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                <button type="reset" onclick="window.location.href='{{ url_for('attendance') }}'"
-                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-redo mr-2"></i>Reset
-                </button>
-                <button type="submit" 
-                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-search mr-2"></i>Apply Filters
-                </button>
-            </div>
-        </form>
+  <!-- ── Stats Grid ────────────────────────────────────────── -->
+  <div class="stats-grid">
+    <div class="glass-l2 stat-card">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-value">{{ attendance_summary|length }}</div>
+      <div class="stat-sub">In filtered range</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:100%;background:var(--lilac)"></div></div>
     </div>
-
-    <!-- Stats Overview (unchanged) -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="glass rounded-xl p-5 border border-gray-700/50">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-400">Total Students</span>
-                <div class="p-2 bg-primary-900/30 rounded-lg">
-                    <i class="fas fa-users text-primary-400"></i>
-                </div>
-            </div>
-            <p class="text-2xl font-bold text-white">{{ attendance_summary|length }}</p>
-            <p class="text-xs text-gray-500 mt-1">In filtered range</p>
-        </div>
-        <div class="glass rounded-xl p-5 border border-gray-700/50">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-400">Defaulters</span>
-                <div class="p-2 bg-danger-900/30 rounded-lg">
-                    <i class="fas fa-exclamation-triangle text-danger-400"></i>
-                </div>
-            </div>
-            <p class="text-2xl font-bold text-white">{{ defaulters|length }}</p>
-            <p class="text-xs text-gray-500 mt-1">&lt; 75% attendance</p>
-        </div>
-        <div class="glass rounded-xl p-5 border border-gray-700/50">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-400">Total Sessions</span>
-                <div class="p-2 bg-warning-900/30 rounded-lg">
-                    <i class="fas fa-calendar-alt text-warning-400"></i>
-                </div>
-            </div>
-            <p class="text-2xl font-bold text-white">{{ total_sessions }}</p>
-            <p class="text-xs text-gray-500 mt-1">In selected period</p>
-        </div>
-        <div class="glass rounded-xl p-5 border border-gray-700/50">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-400">Avg Attendance</span>
-                <div class="p-2 bg-success-900/30 rounded-lg">
-                    <i class="fas fa-chart-line text-success-400"></i>
-                </div>
-            </div>
-            <p class="text-2xl font-bold text-white">
-                {% if attendance_summary %}
-                    {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
-                    {{ "%.1f"|format(avg_percent) }}%
-                {% else %}
-                    0%
-                {% endif %}
-            </p>
-            <p class="text-xs text-gray-500 mt-1">Average percentage</p>
-        </div>
+    <div class="glass-l2 stat-card">
+      <div class="stat-label">Defaulters</div>
+      <div class="stat-value" style="color:var(--alert)">{{ defaulters|length }}</div>
+      <div class="stat-sub">Below 75% attendance</div>
+      <div class="stat-bar">
+        <div class="stat-bar-fill" style="background:var(--alert);width:{% if attendance_summary|length > 0 %}{{ ((defaulters|length / attendance_summary|length)*100)|round(1) }}{% else %}0{% endif %}%"></div>
+      </div>
     </div>
+    <div class="glass-l2 stat-card">
+      <div class="stat-label">Total Sessions</div>
+      <div class="stat-value" style="color:var(--amber)">{{ total_sessions }}</div>
+      <div class="stat-sub">In selected period</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:100%;background:var(--amber)"></div></div>
+    </div>
+    <div class="glass-l2 stat-card">
+      <div class="stat-label">Avg Attendance</div>
+      <div class="stat-value" style="color:var(--emerald)">
+        {% if attendance_summary %}
+          {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
+          {{ "%.1f"|format(avg_percent) }}%
+        {% else %}0%{% endif %}
+      </div>
+      <div class="stat-sub">Class average</div>
+      <div class="stat-bar">
+        <div class="stat-bar-fill" style="background:var(--emerald);width:{% if attendance_summary %}{{ avg_percent|round(1) }}{% else %}0{% endif %}%"></div>
+      </div>
+    </div>
+  </div>
 
-    <!-- Main Content -->
-    <div class="grid lg:grid-cols-3 gap-6">
-        <!-- Attendance Table -->
-        <div class="lg:col-span-2">
-            <div class="glass rounded-2xl overflow-hidden border border-gray-700/50">
-                <div class="p-6 border-b border-gray-700">
-                    <div class="flex items-center justify-between mb-2">
-                        <div>
-                            <h2 class="text-xl font-semibold text-white">Attendance Report</h2>
-                            <p class="text-sm text-gray-400">
-                                {% if selected_subject_name != 'All Subjects' %}
-                                    {{ selected_subject_name }}
-                                    {% if selected_teacher_name != 'All Teachers' %} • {{ selected_teacher_name }}{% endif %}
-                                {% else %}
-                                    All Subjects
-                                {% endif %}
-                                • {{ start_date }} to {{ end_date }}
-                            </p>
-                        </div>
-                        <span class="px-3 py-1 bg-gray-700 rounded-full text-sm text-gray-300">
-                            {{ sessions|length }} sessions
-                        </span>
-                    </div>
-                </div>
+  <!-- ── Filters ───────────────────────────────────────────── -->
+  <div class="glass-l2 no-print" style="padding:24px">
+    <div class="section-header" style="margin-bottom:16px">
+      <span class="section-num">01</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span class="section-title">Filters</span>
+    </div>
+    <form method="GET" action="{{ url_for('attendance') }}">
+      <div class="filters-grid">
+        <div>
+          <label class="modal-label">Subject</label>
+          <select name="subject_id" class="input">
+            <option value="">All Subjects</option>
+            {% for subject in subjects %}
+            <option value="{{ subject.id }}" {% if subject.id|string == selected_subject_id %}selected{% endif %}>
+              {{ subject.subject_name }}{% if subject.department %} ({{ subject.department }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="modal-label">Teacher</label>
+          <select name="teacher_id" class="input">
+            <option value="">All Teachers</option>
+            {% for teacher in teachers %}
+            <option value="{{ teacher.id }}" {% if teacher.id|string == selected_teacher_id %}selected{% endif %}>{{ teacher.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="modal-label">From Date</label>
+          <input type="date" name="start_date" value="{{ start_date }}" class="input">
+        </div>
+        <div>
+          <label class="modal-label">To Date</label>
+          <input type="date" name="end_date" value="{{ end_date }}" class="input">
+        </div>
+      </div>
+      <div class="filters-footer">
+        <button type="reset" onclick="window.location.href='{{ url_for('attendance') }}'" class="btn btn-ghost">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Reset
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Apply Filters
+        </button>
+      </div>
+    </form>
+  </div>
 
-                <div class="overflow-x-auto">
-                    {% if attendance_summary %}
-                    <table class="w-full attendance-table">
-                        <thead>
-                            <tr>
-                                <th class="p-4 text-left">Student</th>
-                                <th class="p-4 text-left">Roll No</th>
-                                <th class="p-4 text-left">Department</th>
-                                {% for session in sessions %}
-                                <th class="p-4 text-center session-column" title="{{ session.date }} {{ session.start_time }}">
-                                    <div class="text-xs">{{ session.date }}</div>
-                                    <div class="text-xs text-gray-500">{{ session.start_time }}</div>
-                                    <!-- NEW: Sticky note button in session header -->
-                                    {% if session.user_role in ['admin', 'teacher'] %}
-                                    <button onclick="openStickyNoteModal({{ session.id }}, '{{ session.subject_name }}', '{{ session.date }}')"
-                                            class="mt-1 p-1 sticky-note-btn rounded-lg text-yellow-400 hover:text-yellow-300 text-xs"
-                                            title="Manually mark a student present">
-                                        <i class="fas fa-sticky-note"></i>
-                                    </button>
-                                    {% endif %}
-                                </th>
-                                {% endfor %}
-                                <th class="p-4 text-center">Present</th>
-                                <th class="p-4 text-center">Total</th>
-                                <th class="p-4 text-center">%</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for student in attendance_summary %}
-                            <tr class="border-t border-gray-700">
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <img src="https://ui-avatars.com/api/?name={{ student.name|urlencode }}&background=0ea5e9&color=fff&size=40&bold=true&length=2" 
-                                             alt="{{ student.name }}" 
-                                             class="w-10 h-10 rounded-full shadow-lg">
-                                        <div>
-                                            <div class="font-medium text-white">{{ student.name }}</div>
-                                            <div class="text-xs text-gray-500">ID: {{ student.id }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="p-4 text-white">{{ student.roll_no or '—' }}</td>
-                                <td class="p-4 text-gray-300">{{ student.department or '—' }}</td>
-                                {% for session in sessions %}
-                                <td class="p-4 text-center">
-                                    {% set status = student.session_attendance.get(session.id, 'absent') %}
-                                    <div class="attendance-badge {{ status }}" title="{{ status|title }}">
-                                        {{ status[0]|upper }}
-                                    </div>
-                                </td>
-                                {% endfor %}
-                                <td class="p-4 text-center"><span class="font-semibold text-white">{{ student.present_count }}</span></td>
-                                <td class="p-4 text-center text-gray-400">{{ student.total_sessions }}</td>
-                                <td class="p-4 text-center">
-                                    {% set percent_class = 'percentage-high' if student.attendance_percent >= 75 else 'percentage-medium' if student.attendance_percent >= 50 else 'percentage-low' %}
-                                    <span class="font-bold {{ percent_class }}">{{ "%.1f"|format(student.attendance_percent) }}%</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <div class="text-center py-12">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-700 mb-4">
-                            <i class="fas fa-clipboard-list text-gray-500 text-2xl"></i>
-                        </div>
-                        <h3 class="text-lg font-medium text-white mb-2">No Attendance Data</h3>
-                        <p class="text-gray-400 mb-6">No sessions found in the selected period.</p>
-                        <a href="{{ url_for('create_session_page') }}" 
-                           class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                            <i class="fas fa-plus"></i> Create First Session
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
+  <!-- ── Main Grid ─────────────────────────────────────────── -->
+  <div class="main-grid">
+
+    <!-- Left: Table + Lower panels -->
+    <div>
+      <!-- Attendance Table -->
+      <div class="glass-l2 table-panel">
+        <div class="table-panel-header">
+          <div class="table-panel-header-text">
+            <div class="section-title">Attendance Report</div>
+            <div class="sub">
+              {% if selected_subject_name != 'All Subjects' %}{{ selected_subject_name }}{% if selected_teacher_name != 'All Teachers' %} &middot; {{ selected_teacher_name }}{% endif %}{% else %}All Subjects{% endif %}
+              &middot; {{ start_date }} &rarr; {{ end_date }}
             </div>
-
-            <!-- Alerts & Recent Sessions (with sticky note button) -->
-            <div class="grid md:grid-cols-2 gap-6 mt-6">
-                <!-- Defaulters (unchanged) -->
-                <div class="glass rounded-2xl p-5 border border-gray-700/50">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="p-2 bg-danger-900/30 rounded-lg">
-                            <i class="fas fa-exclamation-triangle text-danger-400"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-white">Defaulters (Below 75%)</h3>
-                            <p class="text-sm text-gray-400">Attendance below minimum threshold</p>
-                        </div>
-                    </div>
-                    {% if defaulters %}
-                    <div class="space-y-3 max-h-64 overflow-y-auto pr-2">
-                        {% for defaulter in defaulters %}
-                        <div class="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg hover:bg-gray-900 transition-all">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-danger-900/30 flex items-center justify-center">
-                                    <span class="text-danger-400 text-xs font-bold">{{ "%.0f"|format(defaulter.attendance_percent) }}%</span>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-white">{{ defaulter.name }}</div>
-                                    <div class="text-xs text-gray-500">{{ defaulter.roll_no or 'No Roll No' }}</div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-xs text-gray-400">Attendance</div>
-                                <div class="text-sm font-semibold text-danger-300">{{ defaulter.present_count }}/{{ defaulter.total_sessions }}</div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <i class="fas fa-check-circle text-success text-4xl mb-3"></i>
-                        <p class="text-gray-400">No defaulters!</p>
-                        <p class="text-sm text-gray-500 mt-1">All students have good attendance</p>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Recent Sessions (with sticky note button for each session) -->
-                <div class="glass rounded-2xl p-5 border border-gray-700/50">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="p-2 bg-warning-900/30 rounded-lg">
-                            <i class="fas fa-history text-warning-400"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-white">Recent Sessions</h3>
-                            <p class="text-sm text-gray-400">Latest attendance sessions</p>
-                        </div>
-                    </div>
-                    {% if recent_sessions %}
-                    <div class="space-y-3 max-h-64 overflow-y-auto pr-2">
-                        {% for sess in recent_sessions %}
-                        <div class="p-3 bg-gray-900/50 rounded-lg hover:bg-gray-900 transition-all">
-                            <div class="flex justify-between items-start mb-2">
-                                <div class="font-medium text-white">{{ sess.subject_name }}</div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">{{ sess.date }}</span>
-                                    <!-- NEW: Sticky Note Button -->
-                                    {% if session.user_role in ['admin', 'teacher'] %}
-                                    <button onclick="openStickyNoteModal({{ sess.id }}, '{{ sess.subject_name }}', '{{ sess.date }}')"
-                                            class="p-1.5 sticky-note-btn rounded-lg text-yellow-400 hover:text-yellow-300 transition-all"
-                                            title="Manually mark a student present">
-                                        <i class="fas fa-sticky-note"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% if session.user_role in ['admin', 'teacher'] %}
-                                    <form action="{{ url_for('reset_session', session_id=sess.id) }}" method="POST" class="inline" onsubmit="return confirm('Reset attendance for this session? All marked attendance will be set to absent.');">
-                                        <button type="submit" class="text-warning-400 hover:text-warning-300" title="Reset attendance">
-                                            <i class="fas fa-undo-alt"></i>
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <div class="text-gray-400">
-                                    <i class="fas fa-user-tie mr-1"></i>{{ sess.teacher_name }}
-                                </div>
-                                <div class="text-success">
-                                    <i class="fas fa-user-check mr-1"></i>{{ sess.present_count }} present
-                                </div>
-                            </div>
-                            <div class="mt-2 text-xs text-gray-500">
-                                <i class="fas fa-clock mr-1"></i>{{ sess.start_time }} - {{ sess.end_time }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <i class="fas fa-calendar text-gray-600 text-4xl mb-3"></i>
-                        <p class="text-gray-400">No recent sessions</p>
-                        <p class="text-sm text-gray-500 mt-1">Create sessions to see them here</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+          </div>
+          <span class="badge badge-neutral mono">{{ sessions|length }} sessions</span>
         </div>
 
-        <!-- Sidebar (unchanged) -->
-        <div class="space-y-6">
-            <!-- Session Summary -->
-            <div class="glass rounded-2xl p-5 border border-gray-700/50">
-                <h3 class="font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-chart-pie mr-2 text-primary-400"></i>Session Summary
-                </h3>
-                <div class="space-y-4">
-                    {% if selected_subject_name != 'All Subjects' %}
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-400">Subject</span>
-                        <span class="text-white font-medium">{{ selected_subject_name }}</span>
-                    </div>
-                    {% endif %}
-                    {% if selected_teacher_name != 'All Teachers' %}
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-400">Teacher</span>
-                        <span class="text-white font-medium">{{ selected_teacher_name }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-400">Period</span>
-                        <span class="text-white font-medium">{{ start_date }} to {{ end_date }}</span>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-400">Total Sessions</span>
-                        <span class="text-white font-medium">{{ total_sessions }}</span>
-                    </div>
-                    <div class="pt-4 border-t border-gray-700">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-sm text-gray-400">Overall Attendance</span>
-                            {% if attendance_summary %}
-                                {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
-                                {% set perf_color = 'text-success' if avg_percent >= 80 else 'text-warning' if avg_percent >= 70 else 'text-danger' %}
-                                <span class="text-lg font-bold {{ perf_color }}">{{ "%.1f"|format(avg_percent) }}%</span>
-                            {% endif %}
-                        </div>
-                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                            {% if attendance_summary %}
-                                {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
-                                <div class="h-full bg-gradient-to-r from-primary-500 to-primary-400 rounded-full" 
-                                     style="width: {{ avg_percent }}%"></div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="glass rounded-2xl p-5 border border-gray-700/50">
-                <h3 class="font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-bolt mr-2 text-yellow-400"></i>Quick Actions
-                </h3>
-                <div class="space-y-3">
-                    <a href="{{ url_for('download_attendance_report', 
-                              subject_id=selected_subject_id, 
-                              teacher_id=selected_teacher_id,
-                              start_date=start_date,
-                              end_date=end_date) }}" 
-                       class="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg hover:bg-gray-900 transition-all group">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-primary-900/30 rounded-lg group-hover:scale-110 transition-transform">
-                                <i class="fas fa-file-export text-primary-400"></i>
-                            </div>
-                            <span class="text-sm text-white">Export Report</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-primary-400 transition-colors"></i>
-                    </a>
-                    <a href="{{ url_for('create_session_page') }}"
-                       class="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg hover:bg-gray-900 transition-all group">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-success-900/30 rounded-lg group-hover:scale-110 transition-transform">
-                                <i class="fas fa-plus text-success-400"></i>
-                            </div>
-                            <span class="text-sm text-white">New Session</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-success-400 transition-colors"></i>
-                    </a>
-                    <button onclick="printReport()"
-                            class="w-full flex items-center justify-between p-3 bg-gray-900/50 rounded-lg hover:bg-gray-900 transition-all group">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-gray-700 rounded-lg group-hover:scale-110 transition-transform">
-                                <i class="fas fa-print text-gray-300"></i>
-                            </div>
-                            <span class="text-sm text-white">Print Report</span>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-500 group-hover:text-gray-300 transition-colors"></i>
+        <div class="table-scroll">
+          {% if attendance_summary %}
+          <table class="att-table">
+            <thead>
+              <tr>
+                <th class="col-student">Student</th>
+                <th>Roll No</th>
+                <th>Dept</th>
+                {% for session in sessions %}
+                <th class="center col-session" title="{{ session.date }} {{ session.start_time }}">
+                  <div class="session-th-inner">
+                    <span class="session-th-date">{{ session.date }}</span>
+                    <span class="session-th-time">{{ session.start_time }}</span>
+                    {% if session.user_role in ['admin', 'teacher'] %}
+                    <button onclick="openStickyNoteModal({{ session.id }}, '{{ session.subject_name }}', '{{ session.date }}')"
+                            class="sticky-note-btn" title="Mark student present manually">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><polyline points="15 3 15 9 21 9"/></svg>
                     </button>
-                </div>
+                    {% endif %}
+                  </div>
+                </th>
+                {% endfor %}
+                <th class="center">Present</th>
+                <th class="center">Total</th>
+                <th class="center">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in attendance_summary %}
+              <tr class="student-row">
+                <td>
+                  <div class="student-cell">
+                    <img src="https://ui-avatars.com/api/?name={{ student.name|urlencode }}&background=1d3f58&color=b3cde4&size=40&bold=true&length=2"
+                         alt="{{ student.name }}" class="student-avatar">
+                    <div>
+                      <div class="student-name">{{ student.name }}</div>
+                      <div class="student-id">{{ student.id }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="mono" style="font-size:12px;color:var(--haze)">{{ student.roll_no or '—' }}</td>
+                <td style="font-size:12px">{{ student.department or '—' }}</td>
+                {% for session in sessions %}
+                <td class="center">
+                  {% set status = student.session_attendance.get(session.id, 'absent') %}
+                  <span class="att-dot {{ status }}" title="{{ status|title }}">{{ status[0]|upper }}</span>
+                </td>
+                {% endfor %}
+                <td class="center fw-400 text-frost mono" style="font-size:13px">{{ student.present_count }}</td>
+                <td class="center mono" style="font-size:13px;color:var(--steel)">{{ student.total_sessions }}</td>
+                <td class="center">
+                  {% set pct = student.attendance_percent %}
+                  <span class="mono {% if pct >= 75 %}pct-high{% elif pct >= 50 %}pct-medium{% else %}pct-low{% endif %}">{{ "%.1f"|format(pct) }}%</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 14l2 2 4-4"/></svg>
             </div>
-
-            <!-- Help & Tips -->
-            <div class="glass rounded-2xl p-5 border border-gray-700/50">
-                <h3 class="font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-question-circle mr-2 text-primary-400"></i>Help & Tips
-                </h3>
-                <div class="space-y-3 text-sm text-gray-400">
-                    <div class="flex items-start gap-2">
-                        <i class="fas fa-circle text-xs mt-1 text-primary-400"></i>
-                        <span>Click on any session column to view details</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                        <i class="fas fa-circle text-xs mt-1 text-success-400"></i>
-                        <span>Green indicates 75%+ attendance</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                        <i class="fas fa-circle text-xs mt-1 text-danger-400"></i>
-                        <span>Red indicates attendance below 75%</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                        <i class="fas fa-circle text-xs mt-1 text-yellow-400"></i>
-                        <span>Use sticky note to manually mark a student</span>
-                    </div>
-                </div>
-            </div>
+            <div class="empty-title">No Attendance Data</div>
+            <div class="empty-sub">No sessions found in the selected period.</div>
+            <a href="{{ url_for('create_session_page') }}" class="btn btn-primary" style="margin:0 auto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Create First Session
+            </a>
+          </div>
+          {% endif %}
         </div>
-    </div>
-</div>
+      </div>
 
-<!-- NEW: Sticky Note Modal -->
-<div id="stickyNoteModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-    <div class="student-search rounded-2xl max-w-md w-full border border-yellow-500/30 shadow-2xl">
-        <div class="p-6 border-b border-gray-700">
-            <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold text-white flex items-center">
-                    <i class="fas fa-sticky-note text-yellow-400 mr-2"></i>
-                    Sticky Note: Mark Student Present
-                </h3>
-                <button onclick="closeStickyNoteModal()" 
-                        class="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                    <i class="fas fa-times text-gray-400"></i>
-                </button>
+      <!-- Lower panels: Defaulters + Recent Sessions -->
+      <div class="lower-grid">
+
+        <!-- Defaulters -->
+        <div class="glass-l2" style="padding:24px">
+          <div class="panel-header">
+            <div class="panel-header-icon" style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--alert)" stroke-width="1.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
-            <p class="text-sm text-gray-400 mt-2" id="stickyNoteSessionInfo"></p>
+            <div>
+              <div class="panel-title">Defaulters</div>
+              <div class="panel-subtitle">Below 75% threshold</div>
+            </div>
+          </div>
+          {% if defaulters %}
+          <div class="scroll-panel">
+            {% for defaulter in defaulters %}
+            <div class="defaulter-item">
+              <div style="display:flex;align-items:center;flex:1;min-width:0">
+                <div class="defaulter-pct">{{ "%.0f"|format(defaulter.attendance_percent) }}%</div>
+                <div>
+                  <div class="defaulter-name">{{ defaulter.name }}</div>
+                  <div class="defaulter-roll">{{ defaulter.roll_no or 'No roll no.' }}</div>
+                </div>
+              </div>
+              <div class="defaulter-count">{{ defaulter.present_count }}/{{ defaulter.total_sessions }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div style="text-align:center;padding:32px 0">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5" style="margin:0 auto 12px;display:block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div style="font-size:13px;color:var(--frost)">No defaulters</div>
+            <div class="caption" style="margin-top:4px">All students have adequate attendance</div>
+          </div>
+          {% endif %}
         </div>
-        
-        <form id="stickyNoteForm" class="p-6 space-y-5">
-            <input type="hidden" name="session_id" id="stickyNoteSessionId">
-            
+
+        <!-- Recent Sessions -->
+        <div class="glass-l2" style="padding:24px">
+          <div class="panel-header">
+            <div class="panel-header-icon" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Select Student</label>
-                <div class="relative">
-                    <input type="text" id="studentSearch" placeholder="Type to search..." 
-                           class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white pr-10
-                                  focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
-                    <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+              <div class="panel-title">Recent Sessions</div>
+              <div class="panel-subtitle">Latest attendance records</div>
+            </div>
+          </div>
+          {% if recent_sessions %}
+          <div class="scroll-panel">
+            {% for sess in recent_sessions %}
+            <div class="session-item">
+              <div class="session-item-top">
+                <span class="session-subject">{{ sess.subject_name }}</span>
+                <div class="session-item-actions">
+                  <span class="badge badge-neutral mono" style="font-size:10px">{{ sess.date }}</span>
+                  {% if session.user_role in ['admin', 'teacher'] %}
+                  <button onclick="openStickyNoteModal({{ sess.id }}, '{{ sess.subject_name }}', '{{ sess.date }}')"
+                          class="sticky-note-btn" title="Mark student present manually">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><polyline points="15 3 15 9 21 9"/></svg>
+                  </button>
+                  {% endif %}
+                  {% if session.user_role in ['admin', 'teacher'] %}
+                  <form action="{{ url_for('reset_session', session_id=sess.id) }}" method="POST" class="inline" onsubmit="return confirm('Reset attendance for this session? All marked attendance will be set to absent.');">
+                    <button type="submit" style="padding:3px 5px;border-radius:4px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--alert);cursor:pointer;display:inline-flex;transition:background .18s" title="Reset attendance">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    </button>
+                  </form>
+                  {% endif %}
                 </div>
-                <div id="studentList" class="mt-2 max-h-48 overflow-y-auto bg-gray-900/70 border border-gray-700 rounded-lg hidden">
-                    <!-- Options will be injected here -->
-                </div>
-<input type="hidden" name="student_id" id="studentSelectSticky">                    <!-- Fallback hidden select -->
-                </select>
+              </div>
+              <div class="session-meta">
+                <span class="session-teacher">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  {{ sess.teacher_name }}
+                </span>
+                <span class="session-present">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--emerald)"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                  {{ sess.present_count }} present
+                </span>
+              </div>
+              <div style="margin-top:6px;font-family:var(--font-mono);font-size:10px;color:rgba(83,118,146,.6)">
+                {{ sess.start_time }} — {{ sess.end_time }}
+              </div>
             </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Note (optional)</label>
-                <textarea name="note" rows="2" placeholder="e.g., Student was present but not detected by camera" 
-                          class="w-full bg-gray-900/70 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500
-                                 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"></textarea>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div style="text-align:center;padding:32px 0">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <div style="font-size:13px;color:var(--steel)">No recent sessions</div>
+          </div>
+          {% endif %}
+        </div>
+
+      </div><!-- /lower-grid -->
+    </div><!-- /left col -->
+
+    <!-- ── Sidebar ──────────────────────────────────────────── -->
+    <div class="sidebar-col">
+
+      <!-- Session Summary -->
+      <div class="glass-l2 sidebar-panel">
+        <div class="section-header">
+          <span class="section-num">02</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+          <span class="section-title" style="font-size:15px">Summary</span>
+        </div>
+
+        {% if selected_subject_name != 'All Subjects' %}
+        <div class="summary-row"><span class="key">Subject</span><span class="val">{{ selected_subject_name }}</span></div>
+        {% endif %}
+        {% if selected_teacher_name != 'All Teachers' %}
+        <div class="summary-row"><span class="key">Teacher</span><span class="val">{{ selected_teacher_name }}</span></div>
+        {% endif %}
+        <div class="summary-row"><span class="key">From</span><span class="val">{{ start_date }}</span></div>
+        <div class="summary-row"><span class="key">To</span><span class="val">{{ end_date }}</span></div>
+        <div class="summary-row"><span class="key">Sessions</span><span class="val">{{ total_sessions }}</span></div>
+
+        <div class="overall-bar-wrap">
+          <div class="overall-bar-label">
+            <span class="key">Overall Attendance</span>
+            {% if attendance_summary %}
+              {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
+              <span class="overall-pct {% if avg_percent >= 80 %}pct-high{% elif avg_percent >= 70 %}pct-medium{% else %}pct-low{% endif %}">{{ "%.1f"|format(avg_percent) }}%</span>
+            {% else %}
+              <span class="overall-pct" style="color:var(--steel)">—</span>
+            {% endif %}
+          </div>
+          <div class="overall-bar">
+            {% if attendance_summary %}
+              {% set avg_percent = (attendance_summary|sum(attribute='attendance_percent') / attendance_summary|length) %}
+              <div class="overall-bar-fill" style="width:{{ avg_percent }}%;background:{% if avg_percent >= 75 %}var(--emerald){% elif avg_percent >= 50 %}var(--amber){% else %}var(--alert){% endif %}"></div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="glass-l2 sidebar-panel">
+        <div class="section-header">
+          <span class="section-num">03</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span class="section-title" style="font-size:15px">Quick Actions</span>
+        </div>
+
+        <a href="{{ url_for('download_attendance_report', subject_id=selected_subject_id, teacher_id=selected_teacher_id, start_date=start_date, end_date=end_date) }}" class="qa-item">
+          <div class="qa-item-left">
+            <div class="qa-icon" style="background:rgba(179,205,228,.06);border:1px solid rgba(179,205,228,.1)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--haze)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </div>
-            
-            <div class="flex gap-3 pt-4 border-t border-gray-700">
-                <button type="button" onclick="closeStickyNoteModal()"
-                        class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    Cancel
-                </button>
-                <button type="submit" id="stickyNoteSubmitBtn"
-                        class="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-all hover:scale-105">
-                    <i class="fas fa-check mr-2"></i>Mark Present
-                </button>
+            <span class="qa-label">Export Report</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </a>
+
+        <a href="{{ url_for('create_session_page') }}" class="qa-item">
+          <div class="qa-item-left">
+            <div class="qa-icon" style="background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
             </div>
-        </form>
+            <span class="qa-label">New Session</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </a>
+
+        <button onclick="printReport()" class="qa-item">
+          <div class="qa-item-left">
+            <div class="qa-icon" style="background:rgba(83,118,146,.06);border:1px solid rgba(83,118,146,.18)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            </div>
+            <span class="qa-label">Print Report</span>
+          </div>
+          <span class="qa-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+      </div>
+
+      <!-- Tips -->
+      <div class="glass-l2 sidebar-panel">
+        <div class="section-header">
+          <span class="section-num">04</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span class="section-title" style="font-size:15px">Reference</span>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot" style="background:var(--lilac)"></div>
+          <span>Click any session column header to view session details</span>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot" style="background:var(--emerald)"></div>
+          <span>Green percentage indicates 75% or above attendance</span>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot" style="background:var(--alert)"></div>
+          <span>Red percentage indicates attendance below 75%</span>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot" style="background:var(--amber)"></div>
+          <span>Use the note icon to manually mark a student present</span>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div><!-- /main-grid -->
+
+</div><!-- /att-wrapper -->
+</div><!-- /att-page -->
+
+<!-- ── Sticky Note Modal ──────────────────────────────────── -->
+<div id="stickyNoteModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><polyline points="15 3 15 9 21 9"/></svg>
+          Mark Student Present
+        </div>
+        <div class="modal-subtitle" id="stickyNoteSessionInfo"></div>
+      </div>
+      <button class="modal-close" onclick="closeStickyNoteModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
+
+    <form id="stickyNoteForm" class="modal-body" style="gap:16px">
+      <input type="hidden" name="session_id" id="stickyNoteSessionId">
+
+      <div>
+        <label class="modal-label">Select Student</label>
+        <div style="position:relative">
+          <input type="text" id="studentSearch" placeholder="Search by name or roll number…" class="input"
+                 autocomplete="off">
+          <div id="studentList" class="student-dropdown"></div>
+        </div>
+        <input type="hidden" name="student_id" id="studentSelectSticky">
+      </div>
+
+      <div>
+        <label class="modal-label">Note (optional)</label>
+        <textarea name="note" rows="2" placeholder="e.g. Student was present but not detected by camera" class="input" style="resize:vertical;min-height:72px"></textarea>
+      </div>
+    </form>
+
+    <div class="modal-footer">
+      <button type="button" onclick="closeStickyNoteModal()" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="stickyNoteSubmitBtn" onclick="submitStickyNote()" class="btn btn-amber">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Mark Present
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
+// ── Print ──────────────────────────────────────────────────
 function printReport() {
-    const printStyles = `
-        @media print {
-            .no-print, header, footer, .sidebar, .filters {
-                display: none !important;
-            }
-            body {
-                background: white !important;
-                color: black !important;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            th, td {
-                border: 1px solid #ddd;
-                padding: 8px;
-            }
-            th {
-                background-color: #f2f2f2;
-            }
-        }
-    `;
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-        <head>
-            <title>Attendance Report - {{ start_date }} to {{ end_date }}</title>
-            <style>${printStyles}</style>
-        </head>
-        <body>
-            <h1>Attendance Report</h1>
-            <p><strong>Period:</strong> {{ start_date }} to {{ end_date }}</p>
-            {% if selected_subject_name != 'All Subjects' %}
-            <p><strong>Subject:</strong> {{ selected_subject_name }}</p>
-            {% endif %}
-            {% if selected_teacher_name != 'All Teachers' %}
-            <p><strong>Teacher:</strong> {{ selected_teacher_name }}</p>
-            {% endif %}
-            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-            <hr>
-            ${document.querySelector('.attendance-table').outerHTML}
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    
-    setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-    }, 500);
+  const printStyles = `
+    @media print {
+      body { background: white !important; color: black !important; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #ddd; padding: 8px; }
+      th { background-color: #f2f2f2; }
+    }
+  `;
+  const printWindow = window.open('', '_blank');
+  const tableEl = document.querySelector('.att-table');
+  printWindow.document.write(`
+    <html><head>
+      <title>Attendance Report – {{ start_date }} to {{ end_date }}</title>
+      <style>${printStyles}</style>
+    </head><body>
+      <h1>Attendance Report</h1>
+      <p><strong>Period:</strong> {{ start_date }} to {{ end_date }}</p>
+      {% if selected_subject_name != 'All Subjects' %}<p><strong>Subject:</strong> {{ selected_subject_name }}</p>{% endif %}
+      {% if selected_teacher_name != 'All Teachers' %}<p><strong>Teacher:</strong> {{ selected_teacher_name }}</p>{% endif %}
+      <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+      <hr>
+      ${tableEl ? tableEl.outerHTML : '<p>No data available</p>'}
+    </body></html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
 }
 
-// Sticky Note functionality
-let allStudents = []; // will be populated from API
+// ── Sticky Note ────────────────────────────────────────────
+let allStudents = [];
 
 async function loadStudents() {
-    try {
-        const response = await fetch('/api/students');
-        if (response.ok) {
-            allStudents = await response.json();
-        }
-    } catch (error) {
-        console.error('Failed to load students:', error);
-    }
+  try {
+    const res = await fetch('/api/students');
+    if (res.ok) allStudents = await res.json();
+  } catch (e) { console.error('Failed to load students:', e); }
 }
 
 function openStickyNoteModal(sessionId, subjectName, date) {
-    document.getElementById('stickyNoteSessionId').value = sessionId;
-    document.getElementById('stickyNoteSessionInfo').textContent = `${subjectName} - ${date}`;
-    document.getElementById('stickyNoteModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    
-    // Load students if not already loaded
-    if (allStudents.length === 0) {
-        loadStudents().then(() => {
-            populateStudentList(allStudents);
-        });
-    } else {
-        populateStudentList(allStudents);
-    }
-    
-    // Clear previous search
-    document.getElementById('studentSearch').value = '';
-    document.getElementById('studentList').innerHTML = '';
-    document.getElementById('studentList').classList.add('hidden');
+  document.getElementById('stickyNoteSessionId').value = sessionId;
+  document.getElementById('stickyNoteSessionInfo').textContent = `${subjectName} — ${date}`;
+  document.getElementById('stickyNoteModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('studentSearch').value = '';
+  document.getElementById('studentSelectSticky').value = '';
+  document.getElementById('studentList').innerHTML = '';
+  document.getElementById('studentList').classList.remove('open');
+
+  if (allStudents.length === 0) {
+    loadStudents();
+  }
 }
 
 function closeStickyNoteModal() {
-    document.getElementById('stickyNoteModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
+  document.getElementById('stickyNoteModal').classList.remove('open');
+  document.body.style.overflow = 'auto';
 }
 
-function populateStudentList(students) {
-    const listContainer = document.getElementById('studentList');
-    listContainer.innerHTML = '';
-    students.forEach(student => {
-        const option = document.createElement('div');
-        option.className = 'p-3 hover:bg-gray-800 cursor-pointer border-b border-gray-700 last:border-0';
-        option.setAttribute('data-student-id', student.id);
-        option.innerHTML = `
-            <div class="font-medium text-white">${student.name}</div>
-            <div class="text-xs text-gray-500">${student.roll_no || 'No roll number'}</div>
-        `;
-        option.addEventListener('click', () => {
-            document.getElementById('studentSelectSticky').value = student.id;
-            document.getElementById('studentSearch').value = student.name;
-            listContainer.classList.add('hidden');
-        });
-        listContainer.appendChild(option);
+function renderStudentDropdown(students) {
+  const list = document.getElementById('studentList');
+  list.innerHTML = '';
+  if (students.length === 0) {
+    list.innerHTML = '<div class="student-dropdown-item"><div class="sdi-empty">No matching students</div></div>';
+  } else {
+    students.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'student-dropdown-item';
+      el.innerHTML = `<div class="sdi-name">${s.name}</div><div class="sdi-roll">${s.roll_no || 'No roll number'}</div>`;
+      el.addEventListener('click', () => {
+        document.getElementById('studentSelectSticky').value = s.id;
+        document.getElementById('studentSearch').value = s.name;
+        list.classList.remove('open');
+      });
+      list.appendChild(el);
     });
+  }
+  list.classList.add('open');
 }
 
-// Search/filter students as user types
-document.getElementById('studentSearch').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const listContainer = document.getElementById('studentList');
-    
-    if (searchTerm.length === 0) {
-        listContainer.classList.add('hidden');
-        return;
-    }
-    
-    const filtered = allStudents.filter(s => 
-        s.name.toLowerCase().includes(searchTerm) || 
-        (s.roll_no && s.roll_no.toLowerCase().includes(searchTerm))
-    );
-    
-    if (filtered.length > 0) {
-        populateStudentList(filtered);
-        listContainer.classList.remove('hidden');
+document.getElementById('studentSearch').addEventListener('input', function () {
+  const term = this.value.toLowerCase().trim();
+  if (!term) { document.getElementById('studentList').classList.remove('open'); return; }
+  const filtered = allStudents.filter(s =>
+    s.name.toLowerCase().includes(term) || (s.roll_no && s.roll_no.toLowerCase().includes(term))
+  );
+  renderStudentDropdown(filtered);
+});
+
+document.addEventListener('click', function (e) {
+  const list = document.getElementById('studentList');
+  const search = document.getElementById('studentSearch');
+  if (list && search && !list.contains(e.target) && !search.contains(e.target)) {
+    list.classList.remove('open');
+  }
+});
+
+document.getElementById('stickyNoteModal').addEventListener('click', function (e) {
+  if (e.target === this) closeStickyNoteModal();
+});
+
+async function submitStickyNote() {
+  const sessionId = document.getElementById('stickyNoteSessionId').value;
+  const studentId = document.getElementById('studentSelectSticky').value;
+  const note = document.querySelector('#stickyNoteForm textarea[name="note"]').value;
+
+  if (!studentId) {
+    // Simple inline feedback
+    document.getElementById('studentSearch').style.borderColor = 'rgba(248,113,113,.5)';
+    setTimeout(() => { document.getElementById('studentSearch').style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  const btn = document.getElementById('stickyNoteSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Marking…';
+
+  try {
+    const body = new URLSearchParams();
+    body.append('student_id', studentId);
+    if (note) body.append('note', note);
+
+    const res = await fetch(`/session/${sessionId}/mark_manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      closeStickyNoteModal();
+      setTimeout(() => window.location.reload(), 800);
     } else {
-        listContainer.innerHTML = '<div class="p-3 text-gray-500 text-center">No matching students</div>';
-        listContainer.classList.remove('hidden');
+      alert(data.error || 'Failed to mark attendance.');
     }
-});
+  } catch {
+    alert('Network error. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Mark Present';
+  }
+}
 
-// Hide student list when clicking outside
-document.addEventListener('click', function(e) {
-    const list = document.getElementById('studentList');
-    const search = document.getElementById('studentSearch');
-    if (list && search && !list.contains(e.target) && !search.contains(e.target)) {
-        list.classList.add('hidden');
-    }
-});
+// ── Filter auto-submit ────────────────────────────────────
+document.querySelectorAll('select[name="subject_id"], select[name="teacher_id"]')
+  .forEach(s => s.addEventListener('change', () => s.form.submit()));
 
-// Form submission with improved handling
-document.getElementById('stickyNoteForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const sessionId = document.getElementById('stickyNoteSessionId').value;
-    const studentId = document.getElementById('studentSelectSticky').value;
-    const note = this.querySelector('textarea[name="note"]').value;
-    
-    if (!studentId) {
-        toast('Please select a student', 'error');
-        return;
-    }
-    
-    const submitBtn = document.getElementById('stickyNoteSubmitBtn');
-    setLoading(submitBtn, true, 'Marking...');
-    
-    try {
-        const formData = new URLSearchParams();
-        formData.append('student_id', studentId);
-        if (note) formData.append('note', note);
-        
-        const response = await fetch(`/session/${sessionId}/mark_manual`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            toast(data.message, 'success');
-            closeStickyNoteModal();
-            setTimeout(() => window.location.reload(), 1500);
-        } else {
-            toast(data.error || 'Failed to mark attendance', 'error');
-        }
-    } catch (error) {
-        toast('Network error. Please try again.', 'error');
-    } finally {
-        setLoading(submitBtn, false);
-    }
-});
-
-// Student row click handler (existing)
-document.querySelectorAll('.student-row').forEach(row => {
-    row.addEventListener('click', function(e) {
-        if (e.target.closest('.attendance-badge') || e.target.closest('button')) return;
-        const studentId = this.querySelector('.text-xs.text-gray-500').textContent.replace('ID: ', '');
-        const studentName = this.querySelector('.font-medium.text-white').textContent;
-        toast(`Selected ${studentName}`, 'info', 2000);
-    });
-});
-
-// Filter form auto-submit (existing)
-const filterSelects = document.querySelectorAll('select[name="subject_id"], select[name="teacher_id"]');
-filterSelects.forEach(select => {
-    select.addEventListener('change', function() {
-        this.form.submit();
-    });
-});
+// ── Spin keyframe ─────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(style);
 </script>
 {% endblock %}
