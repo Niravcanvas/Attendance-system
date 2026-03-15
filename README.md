@@ -1,52 +1,54 @@
-# 🎓 AI Attendance System
+# AI Attendance System
 
-A face-recognition-based attendance system built with Flask and InsightFace. Capture a photo of a classroom, and it automatically marks attendance for recognized students.
-
----
-
-## ✨ Features
-
-- **Face Recognition** — Uses InsightFace (`buffalo_l` model) to detect and recognize student faces
-- **Session Management** — Create class sessions per subject/teacher
-- **Attendance Reports** — Export to CSV or Excel with filters
-- **Student Management** — Add students with photos, roll numbers, department, and year
-- **Role-Based Access** — Admin, Teacher, and Student roles with separate permissions
-- **Defaulters Report** — Automatically flags students below 75% attendance
+A face-recognition-based attendance system built with Flask, InsightFace, and MongoDB. Capture a photo of a classroom and the system automatically detects faces, matches them against enrolled students, and records attendance — all without manual input.
 
 ---
 
-## 🛠️ Tech Stack
+## Features
+
+- **Automated Face Recognition** — Detects and recognizes multiple faces in a single classroom photo using InsightFace (`buffalo_l` model)
+- **Role-Based Access Control** — Separate dashboards and permissions for Admin, Teacher, and Student roles
+- **Session Management** — Create and manage class sessions per subject and teacher
+- **Attendance Reports** — Filter and export attendance records to CSV with date, subject, and teacher filters
+- **Defaulters Report** — Automatically identifies students below 75% attendance threshold
+- **Manual Override** — Mark individual students present manually when needed
+- **Background Encoding** — Face encoding runs in a background thread without blocking the UI
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Backend | Python 3.10+, Flask |
-| Face AI | InsightFace (`buffalo_l`) |
-| Database | SQLite |
+| Database | MongoDB (PyMongo) |
+| Face Recognition | InsightFace (`buffalo_l`), ONNX Runtime |
 | Image Processing | OpenCV, Pillow |
-| Frontend | Jinja2 templates, HTML/CSS/JS |
-| Export | openpyxl (Excel), csv (built-in) |
+| Frontend | Jinja2, HTML, CSS, JavaScript |
+| Environment | python-dotenv |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Attendance System/
-├── app.py                      # Main Flask application
-├── config.py                   # Configuration (if used)
-├── init_db.py                  # Database initializer
-├── attendance_helpers.py       # Helper utilities
-├── embedding_model.py          # Face embedding logic
-├── encode_faces_insightfaces.py # Standalone face encoder
+├── app.py                  # Main Flask application — all routes and logic
+├── db.py                   # MongoDB connection, index creation
+├── init_db.py              # Seeds default users and subjects on first run
+├── config.py               # Environment-aware configuration class
 ├── requirements.txt
-├── attendance.db               # SQLite database (auto-created)
-├── dataset/                    # Student face images (by student ID)
+├── .env                    # Local environment variables (never commit)
+├── .env.example            # Template for environment variables
+├── README.md
+├── .gitignore
+├── dataset/                # Student face images, organised by student ID
 │   └── {student_id}/
-│       ├── name.txt            # Student's name
-│       └── *.jpg               # Face photos
-├── encodings/                  # Numpy face embeddings
-│   ├── index.json              # Maps student IDs → names + files
-│   └── {student_id}.npy
+│       ├── name.txt        # Student display name
+│       └── *.jpg
+├── encodings/              # Face embeddings
+│   ├── index.json          # Maps student IDs to names and embedding files
+│   └── {student_id}.npy   # Numpy embedding vectors
 ├── static/
 │   ├── css/
 │   └── js/
@@ -60,27 +62,36 @@ Attendance System/
 │   ├── attendance.html
 │   ├── create_session.html
 │   └── users.html
-├── uploads/                    # Uploaded/captured images (auto-created)
-├── logs/                       # App logs (auto-created)
-└── timeline.json               # Recent recognition events
+├── uploads/                # Captured and annotated images (auto-created)
+└── logs/                   # Application logs and timeline (auto-created)
 ```
 
 ---
 
-## 🚀 Setup & Installation
+## Requirements
 
-### 1. Clone the repo
+- Python 3.10 or higher
+- MongoDB running locally or a remote connection string
+- CMake and a C++ compiler (required by InsightFace)
+  - macOS: `brew install cmake`
+  - Ubuntu/Debian: `sudo apt install cmake build-essential`
+
+---
+
+## Setup
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/yourusername/attendance-system.git
 cd "attendance-system"
 ```
 
-### 2. Create a virtual environment
+### 2. Create and activate a virtual environment
 
 ```bash
-python -m venv venv
-source venv/bin/activate        # macOS/Linux
+python3 -m venv venv
+source venv/bin/activate        # macOS / Linux
 venv\Scripts\activate           # Windows
 ```
 
@@ -90,79 +101,111 @@ venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 ```
 
-> ⚠️ InsightFace requires CMake and a C++ compiler. On macOS: `brew install cmake`. On Ubuntu: `sudo apt install cmake build-essential`.
+### 4. Configure environment variables
 
-### 4. Run the app
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+
+```
+SECRET_KEY=your-random-secret-key
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB=attendance_system
+PORT=5001
+```
+
+Generate a secure secret key:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 5. Start MongoDB
+
+```bash
+brew services start mongodb-community   # macOS
+sudo systemctl start mongod             # Linux
+```
+
+### 6. Initialise the database
+
+```bash
+python init_db.py
+```
+
+This creates indexes and seeds the default admin, teacher, and student accounts.
+
+### 7. Run the application
 
 ```bash
 python app.py
 ```
 
-The server starts at **http://localhost:5000**
+The server starts at `http://localhost:5001`
 
 ---
 
-## 🔑 Default Login Credentials
+## Default Credentials
 
 | Role | Username | Password |
-|------|----------|----------|
+|---|---|---|
 | Admin | `admin` | `admin123` |
 | Teacher | `teacher1` | `teacher123` |
 | Student | `student1` | `student123` |
 
-> ⚠️ Change these immediately in production.
+Change these immediately after the first login in production.
 
 ---
 
-## 📸 How Attendance Works
+## How Attendance Works
 
-1. **Add Students** → Upload face photos via the Students page
-2. **Encode Faces** → Click "Encode Faces" on the dashboard to generate embeddings
-3. **Create a Session** → Select subject, teacher, date, and time
-4. **Capture & Recognize** → Go to Capture page, take/upload a class photo, hit Recognize
-5. **View Reports** → Attendance page shows per-session and per-student summaries
-
----
-
-## 🗑️ Files You Can Delete
-
-These files are not used by the running app:
-
-| File | Reason |
-|------|--------|
-| `backups/` | Local backup ZIPs — not needed in repo |
-| `attendance.csv` | Old flat-file remnant — app uses SQLite |
-| `reset_attendance.py` | One-off script, functionality is in the web UI |
-| `test_imports.py` | Dev-only import tester |
-| `__pycache__/` | Python bytecode, auto-generated |
-| `venv/` | Virtual environment, never commit this |
+1. **Add Students** — Go to the Students page, add a student with a username and password, and upload face photos
+2. **Encode Faces** — Click "Encode Faces" on the dashboard to generate face embeddings (runs in background)
+3. **Create a Session** — Select a subject, teacher, date, and time slot
+4. **Capture and Recognize** — On the Capture page, take or upload a class photo and click Recognize
+5. **Review Results** — The Attendance page shows per-session records, per-student summaries, and defaulters
 
 ---
 
-## 📦 Environment Variables
+## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | `dev-secret-key-...` | Flask session secret — **change in production** |
-
-Set it in a `.env` file or export before running:
-```bash
-export SECRET_KEY="your-very-secret-key"
-```
-
----
-
-## 📤 Exporting Attendance
-
-- **CSV** — Click "Download CSV" on the Attendance page
-- **Excel** — Click "Download Excel" (requires `openpyxl`)
-- **Defaulters CSV** — Export students below 75% attendance
+|---|---|---|
+| `SECRET_KEY` | `dev-secret-key-...` | Flask session secret — must be changed in production |
+| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
+| `MONGO_DB` | `attendance_system` | MongoDB database name |
+| `RECOGNITION_THRESHOLD` | `0.5` | Cosine similarity threshold for face matching (0.0–1.0) |
+| `INSIGHTFACE_MODEL` | `buffalo_l` | InsightFace model name |
+| `USE_CUDA` | `false` | Set to `true` if an NVIDIA GPU is available |
+| `HOST` | `0.0.0.0` | Server bind address |
+| `PORT` | `5001` | Server port |
+| `FLASK_ENV` | `development` | `development` or `production` |
 
 ---
 
-## 📝 Notes
+## Exporting Attendance
 
-- The InsightFace `buffalo_l` model is downloaded automatically on first run (~300MB)
-- Face encodings are stored as `.npy` files in `encodings/` — back these up if you retrain
-- `dataset/{id}/name.txt` maps a student ID folder to a display name
-- Recognition threshold defaults to `0.5` cosine similarity — adjust `RECOGNITION_THRESHOLD` in `app.py`
+- **CSV** — Available on the Attendance page with subject, teacher, and date filters applied
+- **Defaulters CSV** — Lists all students below 75% attendance for the selected period
+
+---
+
+## Notes
+
+- The `buffalo_l` InsightFace model (~300MB) is downloaded automatically on first run and cached at `~/.insightface/models/`
+- Face embeddings are stored as `.npy` files in `encodings/` — back these up before re-encoding
+- `dataset/{id}/name.txt` maps a student folder to a display name; this file must exist for encoding to work correctly
+- The recognition threshold defaults to `0.5` — increase it for stricter matching, decrease it if legitimate students are not being recognised
+- `uploads/` and `logs/` are created automatically and are excluded from version control
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -m 'Add your feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a pull request

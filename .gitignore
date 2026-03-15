@@ -10,34 +10,34 @@ venv/
 env/
 .venv/
 
-# Database (contains student data — do not commit)
+# Environment variables — never commit real secrets
+.env
+# .env.example is safe to commit ✓
+
+# MongoDB replaces SQLite — delete these if they exist
 *.db
 *.sqlite
 *.sqlite3
+attendance.csv
 
-# Face data (large binary files — store separately)
+# Face data — large binary files, store/backup separately
 dataset/
 encodings/*.npy
 
-# Keep the index and subjects files (they're small JSON metadata)
+# Keep the JSON metadata files (small, useful to track)
 !encodings/index.json
 !encodings/subjects.json
 !encodings/teachers.json
 
-# Uploaded and generated images
-uploads/
+# Runtime-generated files
 logs/
+uploads/
 
-# Backups
-backups/
-
-# Unused/legacy files
-attendance.csv
-timeline.json
-
-# Environment variables
-.env
-.env.*
+# Legacy/unused files — delete these from your project
+attendance_helpers.py
+embedding_model.py
+encode_faces_insightfaces.py
+reset_attendance.py
 
 # macOS
 .DS_Store
@@ -47,8 +47,3 @@ timeline.json
 .idea/
 *.swp
 *.swo
-
-# Build artifacts
-dist/
-build/
-*.egg-info/

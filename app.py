@@ -58,7 +58,7 @@ for _d in [DATASET_DIR, ENCODINGS_DIR, UPLOADS_DIR, FACES_DIR, THUMB_DIR, LOGS_D
     _d.mkdir(parents=True, exist_ok=True)
 
 INDEX_FILE    = ENCODINGS_DIR / "index.json"
-TIMELINE_FILE = BASE_DIR / "timeline.json"
+TIMELINE_FILE = LOGS_DIR / "timeline.json"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "PNG", "JPG", "JPEG"}
 
 RECOGNITION_THRESHOLD = float(os.environ.get("RECOGNITION_THRESHOLD", 0.5))
